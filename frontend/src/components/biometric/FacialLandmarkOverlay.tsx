@@ -185,5 +185,5 @@ export default function FacialLandmarkOverlay({ containerRef }: FacialLandmarkOv
     };
   }, [containerRef]);
 
-  return <canvas ref={canvasRef} className="pointer-events-none absolute z-[15]" aria-hidden="true" />;
+  return <canvas ref={canvasRef} className="facial-landmark-overlay pointer-events-none absolute z-[15]" aria-hidden="true" />;
 }

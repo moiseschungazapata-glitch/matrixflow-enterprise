@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   UserCog,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import FacialLandmarkOverlay from "../../components/biometric/FacialLandmarkOverlay";
@@ -72,6 +72,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState("");
   const biometricCameraRef = useRef<HTMLDivElement>(null);
+  const biometricCardRef = useRef<HTMLDivElement>(null);
   const { acceptSession, login } = useAuth();
   const navigate = useNavigate();
   const awsConfigurationReady = Boolean(
@@ -181,9 +182,19 @@ export default function Login() {
   };
 
   const currentStepIndex = steps.findIndex((step) => step.id === dniStep);
+
+  useEffect(() => {
+    if (dniStep !== "face" || faceStatus === "active" || !window.matchMedia("(max-width: 640px)").matches) return;
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      biometricCardRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [dniStep, faceStatus]);
+
   return (
     <div className="relative grid min-h-screen bg-white transition-colors lg:grid-cols-2 dark:bg-slate-950">
-      <div className="absolute right-5 top-5 z-30"><ThemeToggle /></div>
+      <div className="login-theme-toggle absolute right-5 top-5 z-30"><ThemeToggle /></div>
 
       <section className="identity-hero relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="identity-hero-grid absolute inset-0" />
@@ -331,7 +342,7 @@ export default function Login() {
                 <div>
                   {faceStatus !== "verified" && <button type="button" onClick={() => { resetFaceVerification(); setDniStep("profile"); }} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"><ArrowLeft size={16} />Volver al perfil</button>}
 
-                  <div className="biometric-card overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
+                  <div ref={biometricCardRef} className="biometric-card scroll-mt-3 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
                     <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-7">
                       <div className="flex items-center gap-3">
                         <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20"><ScanFace size={21} /></div>
@@ -358,7 +369,7 @@ export default function Login() {
 
                       <div ref={biometricCameraRef} className={`biometric-camera-frame relative mt-5 min-h-72 overflow-hidden rounded-2xl border bg-slate-950 shadow-inner ${faceStatus === "verified" ? "border-emerald-400/60" : "border-cyan-400/40"}`}>
                         <div className="biometric-camera-grid pointer-events-none absolute inset-0 z-10" aria-hidden="true" />
-                        <div className="pointer-events-none absolute inset-0 z-20" aria-hidden="true">
+                        <div className="biometric-hud pointer-events-none absolute inset-0 z-20" aria-hidden="true">
                           <span className="biometric-corner biometric-corner-tl" />
                           <span className="biometric-corner biometric-corner-tr" />
                           <span className="biometric-corner biometric-corner-bl" />

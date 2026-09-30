@@ -95,6 +95,32 @@ button:disabled { cursor: not-allowed; }
   .biometric-corner-tl, .biometric-corner-bl { left: 9%; }
   .biometric-corner-tr, .biometric-corner-br { right: 9%; }
   .biometric-scan-line { left: 10%; right: 10%; }
+
+  /* Amplify intentionally switches the recording challenge to fullscreen on
+     phones. Keep that official surface above the MatrixFlow card and remove
+     decorative overlays that are positioned relative to the inline preview. */
+  body:has(.amplify-liveness-camera-module--mobile) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body:has(.amplify-liveness-camera-module--mobile) .login-theme-toggle,
+  .biometric-camera-frame:has(.amplify-liveness-camera-module--mobile) > .biometric-camera-grid,
+  .biometric-camera-frame:has(.amplify-liveness-camera-module--mobile) > .biometric-hud,
+  .biometric-camera-frame:has(.amplify-liveness-camera-module--mobile) .facial-landmark-overlay {
+    display: none;
+  }
+
+  .biometric-camera-frame .amplify-liveness-camera-module--mobile {
+    inset: 0;
+    width: 100dvw;
+    height: 100dvh;
+    min-height: 100svh;
+    border: 0;
+    border-radius: 0;
+    overflow: hidden;
+    z-index: 100;
+  }
 }
 
 /* Dark-mode compatibility for the existing utility-based screens. */
