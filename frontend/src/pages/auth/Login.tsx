@@ -15,9 +15,10 @@ import {
   ShieldCheck,
   UserCog,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import FacialLandmarkOverlay from "../../components/biometric/FacialLandmarkOverlay";
 import ThemeToggle from "../../components/common/ThemeToggle";
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -70,6 +71,7 @@ export default function Login() {
   const [faceStatus, setFaceStatus] = useState<FaceStatus>("idle");
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState("");
+  const biometricCameraRef = useRef<HTMLDivElement>(null);
   const { acceptSession, login } = useAuth();
   const navigate = useNavigate();
   const awsConfigurationReady = Boolean(
@@ -354,7 +356,7 @@ export default function Login() {
                         </p>
                       </div>
 
-                      <div className={`biometric-camera-frame relative mt-5 min-h-72 overflow-hidden rounded-2xl border bg-slate-950 shadow-inner ${faceStatus === "verified" ? "border-emerald-400/60" : "border-cyan-400/40"}`}>
+                      <div ref={biometricCameraRef} className={`biometric-camera-frame relative mt-5 min-h-72 overflow-hidden rounded-2xl border bg-slate-950 shadow-inner ${faceStatus === "verified" ? "border-emerald-400/60" : "border-cyan-400/40"}`}>
                         <div className="biometric-camera-grid pointer-events-none absolute inset-0 z-10" aria-hidden="true" />
                         <div className="pointer-events-none absolute inset-0 z-20" aria-hidden="true">
                           <span className="biometric-corner biometric-corner-tl" />
@@ -394,6 +396,7 @@ export default function Login() {
                                 setFaceError("La sesión facial se interrumpió. Crea un intento nuevo.");
                               }}
                             />
+                            <FacialLandmarkOverlay containerRef={biometricCameraRef} />
                           </div>
                         )}
 
