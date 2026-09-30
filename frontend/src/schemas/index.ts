@@ -5,6 +5,10 @@ export const loginSchema = z.object({
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
 
+export const dniLoginSchema = z.object({
+  dni: z.string().regex(/^\d{8}$/, "El DNI debe contener exactamente 8 dígitos"),
+});
+
 export const companySchema = z.object({
   name: z.string().min(3, "Ingresa la razón social"),
   taxId: z.string().regex(/^\d{11}$/, "El RUC debe contener 11 dígitos"),
@@ -63,6 +67,7 @@ export const userSchema = z.object({
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
+export type DniLoginFormData = z.infer<typeof dniLoginSchema>;
 export type CompanyFormData = z.infer<typeof companySchema>;
 export type BranchFormData = z.infer<typeof branchSchema>;
 export type InventoryAdjustmentFormData = z.infer<typeof inventoryAdjustmentSchema>;
