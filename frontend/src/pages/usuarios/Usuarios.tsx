@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Edit3, ImagePlus, LoaderCircle, Plus, RefreshCw, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { Camera, Edit3, ImagePlus, LoaderCircle, Plus, RefreshCw, ScanFace, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Modal from "../../components/common/Modal";
@@ -10,6 +11,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { userSchema, type UserFormData } from "../../schemas";
 import {
   createUser,
+  completeFaceEnrollmentSession,
+  createFaceEnrollmentSession,
   deleteUser,
   enrollFaceReference,
   getUserApiErrorMessage,
@@ -17,6 +20,7 @@ import {
   removeFaceReference,
   updateUser,
   type CreateUserInput,
+  type FaceEnrollmentSession,
   type UpdateUserInput,
 } from "../../services/api/users";
 import type { Role, UserRecord } from "../../types";
@@ -42,6 +46,9 @@ interface Feedback {
   message: string;
 }
 
+type FaceEnrollmentMode = "choice" | "camera";
+type FaceEnrollmentStatus = "idle" | "creating" | "active" | "verifying" | "error";
+
 const roleCards: { role: Role; description: string; color: string }[] = [
   { role: "Administrador", description: "Control total y configuración", color: "bg-blue-50 text-blue-700" },
   { role: "Analista", description: "Ventas, inventario y análisis", color: "bg-cyan-50 text-cyan-700" },
@@ -55,7 +62,15 @@ export default function Usuarios() {
   const [editing, setEditing] = useState<UserRecord | null>(null);
   const [faceUser, setFaceUser] = useState<UserRecord | null>(null);
   const [faceImage, setFaceImage] = useState<File | null>(null);
+  const [faceEnrollmentMode, setFaceEnrollmentMode] = useState<FaceEnrollmentMode>("choice");
+  const [faceEnrollmentStatus, setFaceEnrollmentStatus] = useState<FaceEnrollmentStatus>("idle");
+  const [faceEnrollmentSession, setFaceEnrollmentSession] = useState<FaceEnrollmentSession | null>(null);
+  const [faceEnrollmentError, setFaceEnrollmentError] = useState("");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const awsConfigurationReady = Boolean(
+    import.meta.env.VITE_AWS_COGNITO_IDENTITY_POOL_ID
+      && import.meta.env.VITE_AWS_REGION,
+  );
 
   const {
     register,
@@ -149,7 +164,64 @@ export default function Usuarios() {
     faceMutation.reset();
     removeFaceMutation.reset();
     setFaceImage(null);
+    setFaceEnrollmentMode("choice");
+    setFaceEnrollmentStatus("idle");
+    setFaceEnrollmentSession(null);
+    setFaceEnrollmentError("");
     setFaceUser(user);
+  };
+
+  const closeFaceEnrollment = () => {
+    if (faceMutation.isPending || removeFaceMutation.isPending || faceEnrollmentStatus === "verifying") return;
+    setFaceUser(null);
+    setFaceImage(null);
+    setFaceEnrollmentMode("choice");
+    setFaceEnrollmentStatus("idle");
+    setFaceEnrollmentSession(null);
+    setFaceEnrollmentError("");
+  };
+
+  const beginCameraEnrollment = async () => {
+    if (!faceUser) return;
+    setFaceEnrollmentMode("camera");
+    setFaceEnrollmentError("");
+    if (!awsConfigurationReady) {
+      setFaceEnrollmentStatus("error");
+      setFaceEnrollmentError("Falta configurar el Identity Pool de AWS en el frontend.");
+      return;
+    }
+
+    setFaceEnrollmentStatus("creating");
+    try {
+      const session = await createFaceEnrollmentSession(faceUser.id);
+      setFaceEnrollmentSession(session);
+      setFaceEnrollmentStatus("active");
+    } catch (error) {
+      setFaceEnrollmentSession(null);
+      setFaceEnrollmentStatus("error");
+      setFaceEnrollmentError(getUserApiErrorMessage(error));
+    }
+  };
+
+  const finishCameraEnrollment = async () => {
+    if (!faceUser || !faceEnrollmentSession) return;
+    setFaceEnrollmentStatus("verifying");
+    setFaceEnrollmentError("");
+    try {
+      await completeFaceEnrollmentSession(faceUser.id, faceEnrollmentSession.verificationId);
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      setFeedback({ type: "success", message: "Rostro registrado con cámara y prueba de vida." });
+      setFaceUser(null);
+      setFaceImage(null);
+      setFaceEnrollmentMode("choice");
+      setFaceEnrollmentStatus("idle");
+      setFaceEnrollmentSession(null);
+      setFaceEnrollmentError("");
+    } catch (error) {
+      setFaceEnrollmentSession(null);
+      setFaceEnrollmentStatus("error");
+      setFaceEnrollmentError(getUserApiErrorMessage(error));
+    }
   };
 
   const closeModal = () => {
@@ -357,63 +429,116 @@ export default function Usuarios() {
 
       <Modal
         open={Boolean(faceUser)}
-        onClose={() => {
-          if (faceMutation.isPending || removeFaceMutation.isPending) return;
-          setFaceUser(null);
-          setFaceImage(null);
-        }}
+        onClose={closeFaceEnrollment}
         title="Identidad facial"
-        description={faceUser ? `Registra una fotografía clara de ${faceUser.name}.` : ""}
+        description={faceUser ? `Registra de forma segura el rostro de ${faceUser.name}.` : ""}
+        size={faceEnrollmentMode === "camera" ? "lg" : "md"}
       >
         {faceUser && (
           <div className="space-y-4">
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-slate-700">
-              AWS guardará únicamente la plantilla facial en la colección exclusiva de MatrixFlow. Usa una fotografía frontal, reciente, con un solo rostro y buena iluminación.
+              La opción recomendada verifica que la persona esté presente y usa el mejor fotograma de esa prueba para crear la plantilla facial. MatrixFlow no guarda el video.
             </div>
 
-            {(faceMutation.isError || removeFaceMutation.isError) && (
+            {(faceMutation.isError || removeFaceMutation.isError || faceEnrollmentError) && (
               <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {getUserApiErrorMessage(faceMutation.error ?? removeFaceMutation.error)}
+                {faceEnrollmentError || getUserApiErrorMessage(faceMutation.error ?? removeFaceMutation.error)}
               </p>
             )}
 
-            <label className="block text-sm font-medium text-slate-700">
-              Fotografía JPEG o PNG
-              <input
-                type="file"
-                accept="image/jpeg,image/png"
-                onChange={(event) => setFaceImage(event.target.files?.[0] ?? null)}
-                className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700"
-              />
-            </label>
+            {faceEnrollmentMode === "choice" && (
+              <>
+                <button
+                  type="button"
+                  disabled={faceMutation.isPending || removeFaceMutation.isPending}
+                  onClick={beginCameraEnrollment}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-60"
+                >
+                  <ScanFace size={18} />
+                  {faceUser.faceEnrolled ? "Reemplazar con cámara" : "Registrar con cámara"}
+                </button>
 
-            <div className="flex flex-wrap justify-between gap-3 pt-2">
-              <div>
-                {faceUser.faceEnrolled && (
+                <div className="flex items-center gap-3 py-1 text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" />Alternativa administrativa<span className="h-px flex-1 bg-slate-200" /></div>
+
+                <label className="block text-sm font-medium text-slate-700">
+                  Fotografía JPEG o PNG
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    onChange={(event) => setFaceImage(event.target.files?.[0] ?? null)}
+                    className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700"
+                  />
+                </label>
+
+                <div className="flex flex-wrap justify-between gap-3 pt-2">
+                  <div>
+                    {faceUser.faceEnrolled && (
+                      <button
+                        type="button"
+                        disabled={removeFaceMutation.isPending || faceMutation.isPending}
+                        onClick={() => {
+                          if (window.confirm("¿Eliminar la referencia facial registrada?")) {
+                            removeFaceMutation.mutate(faceUser.id);
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 disabled:opacity-60"
+                      >
+                        <Trash2 size={16} />Eliminar referencia
+                      </button>
+                    )}
+                  </div>
                   <button
                     type="button"
-                    disabled={removeFaceMutation.isPending || faceMutation.isPending}
-                    onClick={() => {
-                      if (window.confirm("¿Eliminar la referencia facial registrada?")) {
-                        removeFaceMutation.mutate(faceUser.id);
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 disabled:opacity-60"
+                    disabled={!faceImage || faceMutation.isPending || removeFaceMutation.isPending}
+                    onClick={() => faceImage && faceMutation.mutate({ userId: faceUser.id, image: faceImage })}
+                    className="inline-flex items-center gap-2 rounded-xl border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <Trash2 size={16} />Eliminar referencia
+                    {faceMutation.isPending ? <LoaderCircle className="animate-spin" size={17} /> : <ImagePlus size={17} />}
+                    Usar fotografía
                   </button>
-                )}
+                </div>
+              </>
+            )}
+
+            {faceEnrollmentMode === "camera" && faceEnrollmentStatus === "creating" && (
+              <div className="grid min-h-72 place-items-center rounded-3xl bg-slate-950 text-center text-white">
+                <div><LoaderCircle className="mx-auto animate-spin text-cyan-300" size={34} /><p className="mt-4 text-sm">Preparando cámara segura...</p></div>
               </div>
-              <button
-                type="button"
-                disabled={!faceImage || faceMutation.isPending || removeFaceMutation.isPending}
-                onClick={() => faceImage && faceMutation.mutate({ userId: faceUser.id, image: faceImage })}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {faceMutation.isPending ? <LoaderCircle className="animate-spin" size={17} /> : <ImagePlus size={17} />}
-                {faceUser.faceEnrolled ? "Reemplazar rostro" : "Registrar rostro"}
-              </button>
-            </div>
+            )}
+
+            {faceEnrollmentMode === "camera" && faceEnrollmentStatus === "active" && faceEnrollmentSession && (
+              <div className="overflow-hidden rounded-3xl bg-slate-950">
+                <FaceLivenessDetector
+                  key={faceEnrollmentSession.sessionId}
+                  sessionId={faceEnrollmentSession.sessionId}
+                  region={faceEnrollmentSession.region}
+                  onAnalysisComplete={finishCameraEnrollment}
+                  onUserCancel={() => {
+                    setFaceEnrollmentSession(null);
+                    setFaceEnrollmentStatus("idle");
+                    setFaceEnrollmentMode("choice");
+                  }}
+                  onError={() => {
+                    setFaceEnrollmentSession(null);
+                    setFaceEnrollmentStatus("error");
+                    setFaceEnrollmentError("La sesión de cámara se interrumpió. Inicia un registro nuevo.");
+                  }}
+                />
+              </div>
+            )}
+
+            {faceEnrollmentMode === "camera" && faceEnrollmentStatus === "verifying" && (
+              <div className="grid min-h-72 place-items-center rounded-3xl bg-slate-950 text-center text-white">
+                <div><ScanFace className="mx-auto animate-pulse text-cyan-300" size={44} /><p className="mt-4 font-semibold">Validando prueba de vida...</p><p className="mt-1 text-xs text-slate-400">Creando la plantilla facial desde el fotograma seguro.</p></div>
+              </div>
+            )}
+
+            {faceEnrollmentMode === "camera" && (faceEnrollmentStatus === "idle" || faceEnrollmentStatus === "error") && (
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={() => { setFaceEnrollmentMode("choice"); setFaceEnrollmentError(""); }} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700">Volver</button>
+                <button type="button" onClick={beginCameraEnrollment} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white"><Camera size={17} />Intentar nuevamente</button>
+              </div>
+            )}
           </div>
         )}
       </Modal>

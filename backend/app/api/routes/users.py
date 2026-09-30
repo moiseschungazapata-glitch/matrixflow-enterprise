@@ -1,8 +1,10 @@
+from uuid import UUID
+
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.dependencies import AdministratorUser, DatabaseSession
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
-from app.schemas.biometric import FaceEnrollmentResponse
+from app.schemas.biometric import FaceEnrollmentResponse, FaceSessionResponse
 from app.services.face_identity_service import FaceIdentityService
 from app.services.user_service import UserService
 
@@ -67,6 +69,34 @@ async def enroll_face_reference(
         )
     content = await image.read()
     return FaceIdentityService(session).enroll_reference(user_id, content)
+
+
+@router.post(
+    "/{user_id}/face-enrollment/sessions",
+    response_model=FaceSessionResponse,
+)
+def create_face_enrollment_session(
+    user_id: int,
+    session: DatabaseSession,
+    _current_user: AdministratorUser,
+) -> FaceSessionResponse:
+    return FaceIdentityService(session).create_enrollment_session(user_id)
+
+
+@router.post(
+    "/{user_id}/face-enrollment/sessions/{verification_id}/complete",
+    response_model=FaceEnrollmentResponse,
+)
+def complete_face_enrollment_session(
+    user_id: int,
+    verification_id: UUID,
+    session: DatabaseSession,
+    _current_user: AdministratorUser,
+) -> FaceEnrollmentResponse:
+    return FaceIdentityService(session).complete_enrollment_session(
+        user_id,
+        str(verification_id),
+    )
 
 
 @router.delete(

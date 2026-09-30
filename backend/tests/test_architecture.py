@@ -64,6 +64,8 @@ async def test_versioned_api_routes_keep_the_expected_urls() -> None:
         "/api/v1/auth/identify": {"post"},
         "/api/v1/auth/login": {"post"},
         "/api/v1/auth/face/sessions": {"post"},
+        "/api/v1/users/{user_id}/face-enrollment/sessions": {"post"},
+        "/api/v1/users/{user_id}/face-enrollment/sessions/{verification_id}/complete": {"post"},
         "/api/v1/companies": {"get"},
         "/api/v1/branches": {"get"},
         "/api/v1/products": {"get"},

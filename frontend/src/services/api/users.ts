@@ -24,6 +24,13 @@ export interface UpdateUserInput {
   status?: UserStatus;
 }
 
+export interface FaceEnrollmentSession {
+  verificationId: string;
+  sessionId: string;
+  region: string;
+  expiresAt: string;
+}
+
 interface ApiValidationIssue {
   msg?: string;
 }
@@ -62,6 +69,24 @@ export async function enrollFaceReference(
   await apiClient.post(`/users/${userId}/face-reference`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+}
+
+export async function createFaceEnrollmentSession(
+  userId: number,
+): Promise<FaceEnrollmentSession> {
+  const response = await apiClient.post<FaceEnrollmentSession>(
+    `/users/${userId}/face-enrollment/sessions`,
+  );
+  return response.data;
+}
+
+export async function completeFaceEnrollmentSession(
+  userId: number,
+  verificationId: string,
+): Promise<void> {
+  await apiClient.post(
+    `/users/${userId}/face-enrollment/sessions/${verificationId}/complete`,
+  );
 }
 
 export async function removeFaceReference(userId: number): Promise<void> {

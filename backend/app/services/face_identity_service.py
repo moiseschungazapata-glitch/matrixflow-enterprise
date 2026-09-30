@@ -166,6 +166,122 @@ class FaceIdentityService(BaseService):
             expires_at=expires_at,
         )
 
+    def create_enrollment_session(self, user_id: int) -> FaceSessionResponse:
+        user = self._get_user(user_id)
+        if user.status != RecordStatus.ACTIVE.value:
+            raise ResourceConflictError(
+                "El usuario debe estar activo para registrar su identidad facial."
+            )
+
+        now = datetime.now(timezone.utc)
+        window_start = now - timedelta(
+            minutes=settings.face_attempt_window_minutes
+        )
+        if self.attempts.count_since(user.id, window_start) >= settings.face_max_attempts:
+            raise TooManyRequestsError(
+                "Se alcanzó el límite de verificaciones. Inténtalo nuevamente más tarde."
+            )
+
+        verification_id = str(uuid4())
+        aws_session_id = self.gateway.create_liveness_session(verification_id)
+        expires_at = now + timedelta(
+            minutes=settings.face_verification_expire_minutes
+        )
+        attempt = FaceVerificationAttempt(
+            id=verification_id,
+            user_id=user.id,
+            aws_session_id=aws_session_id,
+            status="RegistroPendiente",
+            created_at=now,
+            expires_at=expires_at,
+        )
+        with self.transaction():
+            self.attempts.add(attempt)
+
+        return FaceSessionResponse(
+            verification_id=verification_id,
+            session_id=aws_session_id,
+            region=settings.aws_region,
+            expires_at=expires_at,
+        )
+
+    def complete_enrollment_session(
+        self,
+        user_id: int,
+        verification_id: str,
+    ) -> FaceEnrollmentResponse:
+        user = self._get_user(user_id)
+        attempt = self.attempts.get_by_verification_id(verification_id)
+        if attempt is None or attempt.user_id != user.id:
+            raise ResourceNotFoundError("La sesión de registro facial no existe.")
+        if attempt.status != "RegistroPendiente":
+            raise ResourceConflictError("Esta sesión de registro facial ya fue utilizada.")
+
+        now = datetime.now(timezone.utc)
+        expires_at = attempt.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= now:
+            self._finish_attempt(
+                attempt,
+                status="RegistroExpirado",
+                completed_at=now,
+            )
+            raise ResourceConflictError(
+                "La sesión de registro facial expiró. Inicia una nueva."
+            )
+
+        result = self.gateway.get_liveness_result(attempt.aws_session_id)
+        if (
+            result.status != "SUCCEEDED"
+            or result.confidence < settings.face_liveness_threshold
+            or not result.reference_image
+        ):
+            self._finish_attempt(
+                attempt,
+                status="RegistroRechazado",
+                completed_at=now,
+                liveness_confidence=result.confidence,
+            )
+            raise ResourceConflictError(
+                "No se pudo confirmar una prueba de vida válida para el registro."
+            )
+
+        new_face_id = self.gateway.index_face(
+            result.reference_image,
+            external_image_id=f"matrixflow-user-{user.id}",
+        )
+        previous_face_id = user.aws_face_id
+        enrolled_at = datetime.now(timezone.utc)
+        with self.transaction():
+            self.users.update(
+                user,
+                {
+                    "aws_face_id": new_face_id,
+                    "face_enrolled_at": enrolled_at,
+                },
+            )
+            self.attempts.update(
+                attempt,
+                {
+                    "status": "RegistroVerificado",
+                    "completed_at": enrolled_at,
+                    "liveness_confidence": result.confidence,
+                },
+            )
+
+        if previous_face_id and previous_face_id != new_face_id:
+            try:
+                self.gateway.delete_face(previous_face_id)
+            except Exception:
+                logger.exception("Could not remove the superseded Rekognition face")
+
+        return FaceEnrollmentResponse(
+            user_id=user.id,
+            face_enrolled=True,
+            enrolled_at=enrolled_at,
+        )
+
     def complete_session(self, verification_id: str) -> FaceLoginResponse:
         attempt = self.attempts.get_by_verification_id(verification_id)
         if attempt is None:

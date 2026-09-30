@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 import app.models  # noqa: F401 - registers every SQLAlchemy table
 from app.core.config import settings
 from app.core.database import Base
-from app.core.exceptions import AuthenticationError, ServiceUnavailableError
+from app.core.exceptions import (
+    AuthenticationError,
+    ResourceConflictError,
+    ServiceUnavailableError,
+)
 from app.core.security import decode_access_token
 from app.integrations.aws_rekognition import LivenessResult
 from app.models.face_verification_attempt import FaceVerificationAttempt
@@ -22,7 +26,9 @@ from app.services.user_service import UserService
 @dataclass
 class FakeRekognitionGateway:
     similarity: float | None = 99.2
+    liveness_confidence: float = 99.4
     deleted_face_id: str | None = None
+    indexed_image: bytes | None = None
 
     def create_liveness_session(self, client_request_token: str) -> str:
         return f"aws-session-{client_request_token}"
@@ -31,13 +37,14 @@ class FakeRekognitionGateway:
         assert session_id.startswith("aws-session-")
         return LivenessResult(
             status="SUCCEEDED",
-            confidence=99.4,
+            confidence=self.liveness_confidence,
             reference_image=b"live-face",
         )
 
     def index_face(self, image: bytes, external_image_id: str) -> str:
-        assert image == b"reference-face"
+        assert image in {b"reference-face", b"live-face"}
         assert external_image_id.startswith("matrixflow-user-")
+        self.indexed_image = image
         return "aws-face-matrixflow-user"
 
     def delete_face(self, face_id: str) -> None:
@@ -113,6 +120,55 @@ def test_wrong_face_is_rejected_without_issuing_a_token(session: Session) -> Non
     attempt = session.get(FaceVerificationAttempt, liveness_session.verification_id)
     assert attempt is not None
     assert attempt.status == "Rechazada"
+
+
+def test_live_enrollment_indexes_only_the_liveness_reference_image(
+    session: Session,
+) -> None:
+    user = create_face_user(session)
+    gateway = FakeRekognitionGateway()
+    service = FaceIdentityService(session, gateway=gateway)
+
+    enrollment_session = service.create_enrollment_session(user.id)
+    enrollment = service.complete_enrollment_session(
+        user.id,
+        enrollment_session.verification_id,
+    )
+
+    assert enrollment.face_enrolled is True
+    assert gateway.indexed_image == b"live-face"
+    assert user.aws_face_id == "aws-face-matrixflow-user"
+    attempt = session.get(
+        FaceVerificationAttempt,
+        enrollment_session.verification_id,
+    )
+    assert attempt is not None
+    assert attempt.status == "RegistroVerificado"
+    assert attempt.liveness_confidence == pytest.approx(99.4)
+
+
+def test_live_enrollment_rejects_a_failed_liveness_check(
+    session: Session,
+) -> None:
+    user = create_face_user(session)
+    gateway = FakeRekognitionGateway(liveness_confidence=25.0)
+    service = FaceIdentityService(session, gateway=gateway)
+
+    enrollment_session = service.create_enrollment_session(user.id)
+    with pytest.raises(ResourceConflictError, match="prueba de vida válida"):
+        service.complete_enrollment_session(
+            user.id,
+            enrollment_session.verification_id,
+        )
+
+    assert gateway.indexed_image is None
+    assert user.aws_face_id is None
+    attempt = session.get(
+        FaceVerificationAttempt,
+        enrollment_session.verification_id,
+    )
+    assert attempt is not None
+    assert attempt.status == "RegistroRechazado"
 
 
 def test_disabled_face_liveness_never_calls_aws(

@@ -228,10 +228,17 @@ Después, hacer **Redeploy** del frontend.
 2. Abrir **Usuarios**.
 3. Localizar el usuario que ya tiene su DNI real registrado.
 4. Pulsar el botón de cámara.
-5. Seleccionar una fotografía JPEG o PNG frontal, reciente y con un solo rostro.
-6. Pulsar **Registrar rostro**.
-7. Confirmar que la fila muestre **Rostro registrado**.
-8. Cerrar sesión.
+5. Pulsar **Registrar con cámara** y permitir el acceso a la cámara.
+6. Completar el desafío de prueba de vida. AWS entregará al backend un fotograma de
+   referencia únicamente cuando la prueba resulte válida.
+7. El backend indexará ese fotograma en la colección `matrixflow-users` y guardará el
+   `FaceId` correspondiente en Supabase.
+8. Confirmar que la fila muestre **Rostro registrado**.
+9. Cerrar sesión.
+
+La carga de una fotografía JPEG o PNG se conserva únicamente como alternativa
+administrativa. El registro con cámara es el método recomendado porque valida que la
+persona esté presente antes de crear la plantilla facial.
 
 No escribir el `FaceId` en Supabase manualmente. El backend lo guarda después de que
 AWS valida e indexa la fotografía.
