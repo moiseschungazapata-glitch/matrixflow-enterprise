@@ -55,6 +55,7 @@ class AuthService:
             masked_dni=f"••••{data.dni[-4:]}",
             nationality=user.nationality or "No registrada",
             role=user.role,
+            face_enrolled=user.face_enrolled,
         )
 
     def current_user(self, token: str) -> AuthenticatedUser:

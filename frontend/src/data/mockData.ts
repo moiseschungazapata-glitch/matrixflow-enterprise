@@ -82,9 +82,9 @@ export const initialMockState: MockState = {
     { id: 2, type: "Resta", category: "Matriz", inputs: "Ventas por sucursal − Metas trimestrales", result: [[-5, -3, 3], [-2, -3, 1], [-1, -1, -3]], createdAt: isoDaysAgo(2), user: "Ana Torres", status: "Completada" },
   ],
   users: [
-    { id: 1, name: "Ana Torres", dni: null, nationality: null, email: "admin@matrixflow.pe", role: "Administrador", status: "Activo" },
-    { id: 2, name: "Luis Mendoza", dni: null, nationality: null, email: "analista@matrixflow.pe", role: "Analista", status: "Activo" },
-    { id: 3, name: "Carla Rojas", dni: null, nationality: null, email: "consulta@matrixflow.pe", role: "Consulta", status: "Activo" },
+    { id: 1, name: "Ana Torres", dni: null, nationality: null, email: "admin@matrixflow.pe", role: "Administrador", status: "Activo", faceEnrolled: false, faceEnrolledAt: null },
+    { id: 2, name: "Luis Mendoza", dni: null, nationality: null, email: "analista@matrixflow.pe", role: "Analista", status: "Activo", faceEnrolled: false, faceEnrolledAt: null },
+    { id: 3, name: "Carla Rojas", dni: null, nationality: null, email: "consulta@matrixflow.pe", role: "Consulta", status: "Activo", faceEnrolled: false, faceEnrolledAt: null },
   ],
   settings: {
     currency: "PEN",

@@ -45,14 +45,20 @@ class InventoryMovementRepository(BaseRepository[InventoryMovement]):
         statement = (
             select(InventoryMovement)
             .where(InventoryMovement.inventory_id == inventory_id)
-            .order_by(InventoryMovement.movement_date.desc())
+            .order_by(
+                InventoryMovement.movement_date.desc(),
+                InventoryMovement.id.desc(),
+            )
         )
         return self.session.scalars(statement).all()
 
     def list_recent(self, *, offset: int = 0, limit: int = 100) -> Sequence[InventoryMovement]:
         statement = (
             select(InventoryMovement)
-            .order_by(InventoryMovement.movement_date.desc())
+            .order_by(
+                InventoryMovement.movement_date.desc(),
+                InventoryMovement.id.desc(),
+            )
             .offset(offset)
             .limit(limit)
         )

@@ -4,10 +4,13 @@ from fastapi.responses import JSONResponse
 from app.core.exceptions import (
     ApplicationError,
     AuthenticationError,
+    ExternalServiceError,
     PermissionDeniedError,
     PersistenceError,
     ResourceConflictError,
     ResourceNotFoundError,
+    ServiceUnavailableError,
+    TooManyRequestsError,
 )
 
 
@@ -17,6 +20,9 @@ ERROR_STATUS_CODES: dict[type[ApplicationError], int] = {
     AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     PermissionDeniedError: status.HTTP_403_FORBIDDEN,
     PersistenceError: status.HTTP_500_INTERNAL_SERVER_ERROR,
+    ExternalServiceError: status.HTTP_502_BAD_GATEWAY,
+    ServiceUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
+    TooManyRequestsError: status.HTTP_429_TOO_MANY_REQUESTS,
 }
 
 

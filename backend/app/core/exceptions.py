@@ -30,3 +30,15 @@ class PermissionDeniedError(ApplicationError):
 
 class InvalidOperationError(ApplicationError):
     code = "invalid_operation"
+
+
+class ExternalServiceError(ApplicationError):
+    code = "external_service_error"
+
+
+class ServiceUnavailableError(ApplicationError):
+    code = "service_unavailable"
+
+
+class TooManyRequestsError(ApplicationError):
+    code = "too_many_requests"

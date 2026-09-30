@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     jwt_issuer: str = "matrixflow-enterprise"
     jwt_audience: str = "matrixflow-frontend"
     access_token_expire_minutes: int = Field(default=60, gt=0, le=1440)
+    allow_legacy_login: bool = True
+    aws_face_liveness_enabled: bool = False
+    aws_region: str = "us-east-1"
+    aws_rekognition_collection_id: str = "matrixflow-users"
+    face_liveness_threshold: float = Field(default=90.0, ge=0, le=100)
+    face_match_threshold: float = Field(default=95.0, ge=0, le=100)
+    face_verification_expire_minutes: int = Field(default=3, ge=1, le=3)
+    face_max_attempts: int = Field(default=5, ge=1, le=10)
+    face_attempt_window_minutes: int = Field(default=30, ge=3, le=120)
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

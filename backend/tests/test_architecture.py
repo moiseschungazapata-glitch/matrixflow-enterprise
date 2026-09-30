@@ -24,7 +24,7 @@ def test_alembic_has_a_single_initial_head() -> None:
     config = Config(str(backend_directory / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
 
-    assert scripts.get_heads() == ["20260930_0002"]
+    assert scripts.get_heads() == ["20260930_0003"]
 
 
 @pytest.fixture
@@ -63,6 +63,7 @@ async def test_versioned_api_routes_keep_the_expected_urls() -> None:
     required_operations = {
         "/api/v1/auth/identify": {"post"},
         "/api/v1/auth/login": {"post"},
+        "/api/v1/auth/face/sessions": {"post"},
         "/api/v1/companies": {"get"},
         "/api/v1/branches": {"get"},
         "/api/v1/products": {"get"},

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import EmailStr, Field
 
 from app.schemas.common import APIModel, PositiveId, RecordStatus, UpdateModel, UserRole
@@ -31,3 +33,5 @@ class UserResponse(APIModel):
     email: EmailStr
     role: UserRole
     status: RecordStatus
+    face_enrolled: bool
+    face_enrolled_at: datetime | None = None

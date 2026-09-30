@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,14 +15,18 @@ import {
   ShieldCheck,
   UserCog,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import ThemeToggle from "../../components/common/ThemeToggle";
 import { useAuth } from "../../hooks/useAuth";
 import {
+  completeFaceLivenessSession,
+  createFaceLivenessSession,
+  getFaceVerificationErrorMessage,
   getIdentificationErrorMessage,
   identifyByDni,
+  type FaceLivenessSession,
   type IdentityProfile,
 } from "../../services/api/auth";
 import {
@@ -33,8 +38,7 @@ import {
 
 type AccessMode = "dni" | "legacy";
 type DniStep = "identify" | "profile" | "face";
-type CameraStatus = "off" | "starting" | "ready" | "error";
-type FaceStatus = "pending" | "verifying" | "verified";
+type FaceStatus = "idle" | "creating" | "active" | "verifying" | "verified" | "error";
 
 const steps: { id: DniStep; label: string }[] = [
   { id: "identify", label: "DNI" },
@@ -47,18 +51,22 @@ const inputClass = "w-full rounded-xl border border-slate-300 px-4 py-3 text-sm 
 export default function Login() {
   const [accessMode, setAccessMode] = useState<AccessMode>("dni");
   const [dniStep, setDniStep] = useState<DniStep>("identify");
+  const [identifiedDni, setIdentifiedDni] = useState("");
   const [identityProfile, setIdentityProfile] = useState<IdentityProfile | null>(null);
   const [identityError, setIdentityError] = useState("");
-  const [cameraStatus, setCameraStatus] = useState<CameraStatus>("off");
-  const [cameraError, setCameraError] = useState("");
-  const [faceStatus, setFaceStatus] = useState<FaceStatus>("pending");
+  const [faceSession, setFaceSession] = useState<FaceLivenessSession | null>(null);
+  const [faceError, setFaceError] = useState("");
+  const [faceStatus, setFaceStatus] = useState<FaceStatus>("idle");
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState("");
-  const streamRef = useRef<MediaStream | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const verificationTimerRef = useRef<number | null>(null);
-  const { login } = useAuth();
+  const { acceptSession, login } = useAuth();
   const navigate = useNavigate();
+  const awsConfigurationReady = Boolean(
+    import.meta.env.VITE_AWS_COGNITO_IDENTITY_POOL_ID
+      && import.meta.env.VITE_AWS_REGION,
+  );
+  const legacyAccessEnabled = import.meta.env.DEV
+    || import.meta.env.VITE_ALLOW_LEGACY_LOGIN === "true";
 
   const {
     register: registerDni,
@@ -79,28 +87,11 @@ export default function Login() {
     defaultValues: { email: "", password: "" },
   });
 
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setCameraStatus("off");
-  }, []);
-
-  useEffect(() => {
-    if (cameraStatus === "ready" && videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-    }
-  }, [cameraStatus]);
-
-  useEffect(() => () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    if (verificationTimerRef.current !== null) window.clearTimeout(verificationTimerRef.current);
-  }, []);
-
   const identify = async ({ dni }: DniLoginFormData) => {
     setIdentityError("");
     try {
       const profile = await identifyByDni(dni);
+      setIdentifiedDni(dni);
       setIdentityProfile(profile);
       setDniStep("profile");
     } catch (error) {
@@ -109,51 +100,59 @@ export default function Login() {
     }
   };
 
-  const startCamera = async () => {
-    setCameraError("");
-    setCameraStatus("starting");
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraStatus("error");
-      setCameraError("Este navegador no permite acceder a la cámara.");
+  const beginFaceVerification = async () => {
+    if (!identifiedDni) return;
+    setFaceError("");
+    if (!awsConfigurationReady) {
+      setFaceStatus("error");
+      setFaceError("Falta configurar el Identity Pool de AWS en el frontend.");
       return;
     }
 
+    setFaceStatus("creating");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } },
-      });
-      streamRef.current = stream;
-      setCameraStatus("ready");
-    } catch {
-      setCameraStatus("error");
-      setCameraError("No se pudo activar la cámara. Revisa el permiso del navegador e inténtalo nuevamente.");
+      const session = await createFaceLivenessSession(identifiedDni);
+      setFaceSession(session);
+      setFaceStatus("active");
+    } catch (error) {
+      setFaceSession(null);
+      setFaceStatus("error");
+      setFaceError(getFaceVerificationErrorMessage(error));
     }
   };
 
-  const simulateVerification = () => {
-    if (cameraStatus !== "ready") return;
+  const finishFaceVerification = async () => {
+    if (!faceSession) return;
     setFaceStatus("verifying");
-    verificationTimerRef.current = window.setTimeout(() => {
-      stopCamera();
+    setFaceError("");
+    try {
+      const session = await completeFaceLivenessSession(faceSession.verificationId);
+      acceptSession(session);
       setFaceStatus("verified");
-      verificationTimerRef.current = null;
-    }, 1800);
+    } catch (error) {
+      setFaceSession(null);
+      setFaceStatus("error");
+      setFaceError(getFaceVerificationErrorMessage(error));
+    }
+  };
+
+  const resetFaceVerification = () => {
+    setFaceSession(null);
+    setFaceStatus("idle");
+    setFaceError("");
   };
 
   const returnToDni = () => {
-    stopCamera();
     setDniStep("identify");
-    setFaceStatus("pending");
+    setIdentifiedDni("");
+    resetFaceVerification();
     setIdentityProfile(null);
     setIdentityError("");
-    setCameraError("");
     resetDni({ dni: "" });
   };
 
   const showLegacyAccess = () => {
-    stopCamera();
+    resetFaceVerification();
     setAccessMode("legacy");
     setServerError("");
   };
@@ -233,7 +232,7 @@ export default function Login() {
                 </div>
 
                 <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                  <ShieldCheck size={14} />Prototipo visual
+                  <ShieldCheck size={14} />Identidad protegida
                 </div>
               </div>
 
@@ -297,61 +296,93 @@ export default function Login() {
                     </dl>
                   </div>
 
-                  <button type="button" onClick={() => setDniStep("face")} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
+                  <button
+                    type="button"
+                    disabled={!identityProfile.faceEnrolled}
+                    onClick={() => { resetFaceVerification(); setDniStep("face"); }}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                  >
                     Verificar mi identidad<ScanFace size={18} />
                   </button>
+                  {!identityProfile.faceEnrolled && (
+                    <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                      Un administrador debe registrar primero tu fotografía desde el módulo Usuarios.
+                    </p>
+                  )}
                 </div>
               )}
 
               {dniStep === "face" && (
                 <div>
-                  {faceStatus !== "verified" && <button type="button" onClick={() => { stopCamera(); setDniStep("profile"); setCameraError(""); }} className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"><ArrowLeft size={16} />Volver al perfil</button>}
+                  {faceStatus !== "verified" && <button type="button" onClick={() => { resetFaceVerification(); setDniStep("profile"); }} className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"><ArrowLeft size={16} />Volver al perfil</button>}
                   <p className="text-sm font-semibold text-blue-600">Último paso</p>
                   <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Verificación facial</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">Coloca tu rostro dentro del marco y mantén una iluminación uniforme.</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">AWS comprobará la prueba de vida y FastAPI comparará el rostro con la referencia registrada para esta cuenta.</p>
 
-                  <div className="relative mt-7 aspect-square max-h-[350px] w-full overflow-hidden rounded-3xl bg-slate-950 shadow-xl">
-                    {cameraStatus === "ready" && faceStatus !== "verified" && <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover [transform:scaleX(-1)]" />}
-
-                    {(cameraStatus === "off" || cameraStatus === "error") && faceStatus !== "verified" && (
-                      <div className="absolute inset-0 grid place-items-center p-8 text-center">
-                        <div><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white/10 text-cyan-300"><Camera size={30} /></div><p className="mt-4 text-sm font-medium text-white">La cámara está desactivada</p><p className="mt-2 text-xs leading-5 text-slate-400">La vista previa permanece solamente en este dispositivo.</p></div>
-                      </div>
-                    )}
-
-                    {cameraStatus === "starting" && <div className="absolute inset-0 grid place-items-center text-center text-white"><div><LoaderCircle className="mx-auto animate-spin text-cyan-300" size={30} /><p className="mt-3 text-sm">Solicitando permiso...</p></div></div>}
-
-                    {faceStatus === "verifying" && <div className="absolute inset-0 z-20 grid place-items-center bg-slate-950/75 text-center text-white backdrop-blur-sm"><div><ScanFace className="mx-auto animate-pulse text-cyan-300" size={42} /><p className="mt-4 font-semibold">Comparando identidad...</p><p className="mt-1 text-xs text-slate-400">Simulación del flujo visual</p></div></div>}
-
-                    {faceStatus === "verified" && <div className="absolute inset-0 z-20 grid place-items-center bg-emerald-950/90 p-8 text-center text-white"><div><CheckCircle2 className="mx-auto text-emerald-300" size={58} /><h3 className="mt-5 text-xl font-bold">Identidad verificada</h3><p className="mt-2 text-sm leading-6 text-emerald-100/80">La coincidencia visual se completó correctamente.</p></div></div>}
-
-                    {cameraStatus === "ready" && faceStatus === "pending" && <div className="pointer-events-none absolute inset-[12%] rounded-[42%] border-2 border-cyan-300/80 shadow-[0_0_0_999px_rgba(2,6,23,0.28)]"><span className="absolute -left-1 -top-1 h-10 w-10 rounded-tl-3xl border-l-4 border-t-4 border-white" /><span className="absolute -right-1 -top-1 h-10 w-10 rounded-tr-3xl border-r-4 border-t-4 border-white" /><span className="absolute -bottom-1 -left-1 h-10 w-10 rounded-bl-3xl border-b-4 border-l-4 border-white" /><span className="absolute -bottom-1 -right-1 h-10 w-10 rounded-br-3xl border-b-4 border-r-4 border-white" /></div>}
-                  </div>
-
-                  {cameraError && <p className="mt-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{cameraError}</p>}
-
-                  {faceStatus === "pending" && cameraStatus !== "ready" && (
-                    <button type="button" onClick={startCamera} disabled={cameraStatus === "starting"} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"><Camera size={18} />Activar cámara</button>
+                  {(faceStatus === "idle" || faceStatus === "error") && (
+                    <div className="mt-7 rounded-3xl bg-slate-950 p-8 text-center text-white shadow-xl">
+                      <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white/10 text-cyan-300"><Camera size={30} /></div>
+                      <p className="mt-4 text-sm font-semibold">Cámara lista para iniciar</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-400">Usa iluminación uniforme, retira lentes oscuros y mantén el rostro visible.</p>
+                    </div>
                   )}
 
-                  {faceStatus === "pending" && cameraStatus === "ready" && (
-                    <button type="button" onClick={simulateVerification} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"><ScanFace size={18} />Probar verificación visual</button>
+                  {faceStatus === "creating" && (
+                    <div className="mt-7 grid min-h-72 place-items-center rounded-3xl bg-slate-950 text-center text-white shadow-xl">
+                      <div><LoaderCircle className="mx-auto animate-spin text-cyan-300" size={34} /><p className="mt-4 text-sm">Creando sesión segura...</p></div>
+                    </div>
+                  )}
+
+                  {faceStatus === "active" && faceSession && (
+                    <div className="mt-7 overflow-hidden rounded-3xl bg-slate-950 shadow-xl">
+                      <FaceLivenessDetector
+                        key={faceSession.sessionId}
+                        sessionId={faceSession.sessionId}
+                        region={faceSession.region}
+                        onAnalysisComplete={finishFaceVerification}
+                        onUserCancel={resetFaceVerification}
+                        onError={() => {
+                          setFaceSession(null);
+                          setFaceStatus("error");
+                          setFaceError("La sesión facial se interrumpió. Crea un intento nuevo.");
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {faceStatus === "verifying" && (
+                    <div className="mt-7 grid min-h-72 place-items-center rounded-3xl bg-slate-950 text-center text-white shadow-xl">
+                      <div><ScanFace className="mx-auto animate-pulse text-cyan-300" size={44} /><p className="mt-4 font-semibold">Confirmando identidad...</p><p className="mt-1 text-xs text-slate-400">Validando prueba de vida y coincidencia facial.</p></div>
+                    </div>
+                  )}
+
+                  {faceStatus === "verified" && (
+                    <div className="mt-7 grid min-h-72 place-items-center rounded-3xl bg-emerald-950 p-8 text-center text-white shadow-xl">
+                      <div><CheckCircle2 className="mx-auto text-emerald-300" size={58} /><h3 className="mt-5 text-xl font-bold">Identidad verificada</h3><p className="mt-2 text-sm leading-6 text-emerald-100/80">La prueba de vida y el rostro registrado coincidieron.</p></div>
+                    </div>
+                  )}
+
+                  {faceError && <p className="mt-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{faceError}</p>}
+
+                  {(faceStatus === "idle" || faceStatus === "error") && (
+                    <button type="button" onClick={beginFaceVerification} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><ScanFace size={18} />Iniciar verificación facial</button>
                   )}
 
                   {faceStatus === "verified" && (
                     <div className="mt-5">
-                      <button disabled className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white opacity-60"><LockKeyhole size={17} />Continuar al dashboard</button>
-                      <p className="mt-3 text-center text-xs leading-5 text-slate-500">Este botón se habilitará cuando conectemos la validación biométrica real con FastAPI.</p>
+                      <button onClick={() => navigate("/dashboard")} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><LockKeyhole size={17} />Continuar al dashboard</button>
                     </div>
                   )}
 
-                  <p className="mt-4 text-center text-[11px] leading-5 text-slate-400">Esta demostración no analiza, captura ni almacena imágenes.</p>
+                  <p className="mt-4 text-center text-[11px] leading-5 text-slate-400">Al continuar autorizas el procesamiento biométrico necesario para verificar tu identidad. MatrixFlow no guarda el video de la prueba.</p>
                 </div>
               )}
 
-              <div className="mt-8 border-t border-slate-200 pt-5 text-center">
-                <button type="button" onClick={showLegacyAccess} className="text-sm font-semibold text-blue-700 hover:text-blue-800">Ingresar temporalmente con correo y contraseña</button>
-              </div>
+              {legacyAccessEnabled && (
+                <div className="mt-8 border-t border-slate-200 pt-5 text-center">
+                  <button type="button" onClick={showLegacyAccess} className="text-sm font-semibold text-blue-700 hover:text-blue-800">Ingresar temporalmente con correo y contraseña</button>
+                </div>
+              )}
             </>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit3, LoaderCircle, Plus, RefreshCw, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { Camera, Edit3, ImagePlus, LoaderCircle, Plus, RefreshCw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Modal from "../../components/common/Modal";
@@ -11,8 +11,10 @@ import { userSchema, type UserFormData } from "../../schemas";
 import {
   createUser,
   deleteUser,
+  enrollFaceReference,
   getUserApiErrorMessage,
   listUsers,
+  removeFaceReference,
   updateUser,
   type CreateUserInput,
   type UpdateUserInput,
@@ -51,6 +53,8 @@ export default function Usuarios() {
   const { user: currentUser } = useAuth();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UserRecord | null>(null);
+  const [faceUser, setFaceUser] = useState<UserRecord | null>(null);
+  const [faceImage, setFaceImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   const {
@@ -96,6 +100,26 @@ export default function Usuarios() {
     },
   });
 
+  const faceMutation = useMutation({
+    mutationFn: ({ userId, image }: { userId: number; image: File }) => enrollFaceReference(userId, image),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      setFeedback({ type: "success", message: "Rostro de referencia registrado correctamente." });
+      setFaceUser(null);
+      setFaceImage(null);
+    },
+  });
+
+  const removeFaceMutation = useMutation({
+    mutationFn: removeFaceReference,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      setFeedback({ type: "success", message: "Referencia facial eliminada correctamente." });
+      setFaceUser(null);
+      setFaceImage(null);
+    },
+  });
+
   const users = usersQuery.data ?? [];
   const editingSelf = editing?.id === currentUser?.id;
 
@@ -118,6 +142,14 @@ export default function Usuarios() {
       password: "",
     });
     setOpen(true);
+  };
+
+  const showFaceEnrollment = (user: UserRecord) => {
+    setFeedback(null);
+    faceMutation.reset();
+    removeFaceMutation.reset();
+    setFaceImage(null);
+    setFaceUser(user);
   };
 
   const closeModal = () => {
@@ -234,13 +266,14 @@ export default function Usuarios() {
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500"><UserRound size={17} /></div>
-                          <div><p className="font-semibold text-slate-900">{user.name}{user.id === currentUser?.id && <span className="ml-2 text-xs font-medium text-blue-600">Tú</span>}</p><p className="text-xs text-slate-500">{user.email}</p>{user.dni && <p className="mt-0.5 text-xs text-slate-400">DNI ••••{user.dni.slice(-4)}{user.nationality ? ` · ${user.nationality}` : ""}</p>}</div>
+                          <div><p className="font-semibold text-slate-900">{user.name}{user.id === currentUser?.id && <span className="ml-2 text-xs font-medium text-blue-600">Tú</span>}</p><p className="text-xs text-slate-500">{user.email}</p>{user.dni && <p className="mt-0.5 text-xs text-slate-400">DNI ••••{user.dni.slice(-4)}{user.nationality ? ` · ${user.nationality}` : ""}</p>}<p className={`mt-1 text-xs font-medium ${user.faceEnrolled ? "text-emerald-600" : "text-amber-600"}`}>{user.faceEnrolled ? "Rostro registrado" : "Rostro pendiente"}</p></div>
                         </div>
                       </td>
                       <td className="px-5 py-4 text-slate-600">{user.role}</td>
                       <td className="px-5 py-4"><StatusBadge label={user.status} /></td>
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-1">
+                          <button type="button" onClick={() => showFaceEnrollment(user)} className="rounded-lg p-2 text-slate-500 hover:bg-cyan-50 hover:text-cyan-600" aria-label={`Gestionar rostro de ${user.name}`} title="Gestionar rostro"><Camera size={17} /></button>
                           <button type="button" onClick={() => showEdit(user)} className="rounded-lg p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-600" aria-label={`Editar ${user.name}`}><Edit3 size={17} /></button>
                           <button
                             type="button"
@@ -320,6 +353,69 @@ export default function Usuarios() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(faceUser)}
+        onClose={() => {
+          if (faceMutation.isPending || removeFaceMutation.isPending) return;
+          setFaceUser(null);
+          setFaceImage(null);
+        }}
+        title="Identidad facial"
+        description={faceUser ? `Registra una fotografía clara de ${faceUser.name}.` : ""}
+      >
+        {faceUser && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-slate-700">
+              AWS guardará únicamente la plantilla facial en la colección exclusiva de MatrixFlow. Usa una fotografía frontal, reciente, con un solo rostro y buena iluminación.
+            </div>
+
+            {(faceMutation.isError || removeFaceMutation.isError) && (
+              <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {getUserApiErrorMessage(faceMutation.error ?? removeFaceMutation.error)}
+              </p>
+            )}
+
+            <label className="block text-sm font-medium text-slate-700">
+              Fotografía JPEG o PNG
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                onChange={(event) => setFaceImage(event.target.files?.[0] ?? null)}
+                className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700"
+              />
+            </label>
+
+            <div className="flex flex-wrap justify-between gap-3 pt-2">
+              <div>
+                {faceUser.faceEnrolled && (
+                  <button
+                    type="button"
+                    disabled={removeFaceMutation.isPending || faceMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm("¿Eliminar la referencia facial registrada?")) {
+                        removeFaceMutation.mutate(faceUser.id);
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 disabled:opacity-60"
+                  >
+                    <Trash2 size={16} />Eliminar referencia
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={!faceImage || faceMutation.isPending || removeFaceMutation.isPending}
+                onClick={() => faceImage && faceMutation.mutate({ userId: faceUser.id, image: faceImage })}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {faceMutation.isPending ? <LoaderCircle className="animate-spin" size={17} /> : <ImagePlus size={17} />}
+                {faceUser.faceEnrolled ? "Reemplazar rostro" : "Registrar rostro"}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

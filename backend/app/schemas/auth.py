@@ -20,6 +20,7 @@ class IdentityProfileResponse(APIModel):
     masked_dni: str = Field(pattern=r"^••••\d{4}$")
     nationality: str = Field(min_length=2, max_length=80)
     role: UserRole
+    face_enrolled: bool
 
 
 class AuthenticatedUser(APIModel):

@@ -12,6 +12,7 @@ EXPECTED_TABLES = {
     "branches",
     "categories",
     "companies",
+    "face_verification_attempts",
     "inventory",
     "inventory_movements",
     "matrices",
@@ -61,9 +62,13 @@ def test_initial_migration_creates_and_removes_the_complete_schema(tmp_path) -> 
     created_tables = set(inspector.get_table_names())
     assert created_tables == EXPECTED_TABLES | {"alembic_version"}
     user_columns = {column["name"] for column in inspector.get_columns("users")}
-    assert {"dni", "nationality"} <= user_columns
+    assert {"dni", "nationality", "aws_face_id", "face_enrolled_at"} <= user_columns
     assert any(
         index["name"] == "ix_users_dni" and index["unique"]
+        for index in inspector.get_indexes("users")
+    )
+    assert any(
+        index["name"] == "ix_users_aws_face_id" and index["unique"]
         for index in inspector.get_indexes("users")
     )
     engine.dispose()

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 - registers every SQLAlchemy table
-from app.core.config import Settings
+from app.core.config import Settings, settings
 from app.core.database import Base, get_db
 from app.api.dependencies import require_roles
 from app.core.exceptions import AuthenticationError, InvalidTokenError, ResourceNotFoundError
@@ -172,6 +172,7 @@ async def test_login_and_me_endpoints_use_bearer_authentication(session: Session
                 "maskedDni": "••••5678",
                 "nationality": "Peruana",
                 "role": "Administrador",
+                "faceEnrolled": False,
             }
 
             rejected_login = await client.post(
@@ -203,3 +204,32 @@ async def test_login_and_me_endpoints_use_bearer_authentication(session: Session
             assert anonymous_response.headers["www-authenticate"] == "Bearer"
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_legacy_login_can_be_disabled(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "allow_legacy_login", False)
+
+    def override_database():
+        yield session
+
+    app.dependency_overrides[get_db] = override_database
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            response = await client.post(
+                "/api/v1/auth/login",
+                json={"email": "admin@matrixflow.pe", "password": "demo123"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "El acceso con correo y contraseña está deshabilitado."
+    )

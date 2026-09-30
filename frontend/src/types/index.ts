@@ -101,6 +101,8 @@ export interface UserRecord {
   email: string;
   role: Role;
   status: "Activo" | "Inactivo";
+  faceEnrolled: boolean;
+  faceEnrolledAt: string | null;
 }
 
 export interface AppSettings {

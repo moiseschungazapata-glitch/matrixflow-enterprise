@@ -9,6 +9,12 @@ from app.schemas.auth import (
     TokenPayload,
 )
 from app.schemas.branch import BranchCreate, BranchResponse, BranchUpdate
+from app.schemas.biometric import (
+    FaceEnrollmentResponse,
+    FaceLoginResponse,
+    FaceSessionCreateRequest,
+    FaceSessionResponse,
+)
 from app.schemas.company import CompanyCreate, CompanyResponse, CompanyUpdate
 from app.schemas.inventory import (
     InventoryAdjustment,
@@ -33,6 +39,10 @@ __all__ = [
     "CompanyCreate",
     "CompanyResponse",
     "CompanyUpdate",
+    "FaceEnrollmentResponse",
+    "FaceLoginResponse",
+    "FaceSessionCreateRequest",
+    "FaceSessionResponse",
     "DniIdentificationRequest",
     "IdentityProfileResponse",
     "InventoryAdjustment",

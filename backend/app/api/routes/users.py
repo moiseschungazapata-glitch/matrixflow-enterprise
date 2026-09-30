@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.dependencies import AdministratorUser, DatabaseSession
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.schemas.biometric import FaceEnrollmentResponse
+from app.services.face_identity_service import FaceIdentityService
 from app.services.user_service import UserService
 
 router = APIRouter(
@@ -48,11 +50,46 @@ def update_user(
     return UserService(session).update(user_id, data)
 
 
+@router.post(
+    "/{user_id}/face-reference",
+    response_model=FaceEnrollmentResponse,
+)
+async def enroll_face_reference(
+    user_id: int,
+    session: DatabaseSession,
+    _current_user: AdministratorUser,
+    image: UploadFile = File(...),
+) -> FaceEnrollmentResponse:
+    if image.content_type not in {"image/jpeg", "image/png"}:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="La fotografía debe estar en formato JPEG o PNG.",
+        )
+    content = await image.read()
+    return FaceIdentityService(session).enroll_reference(user_id, content)
+
+
+@router.delete(
+    "/{user_id}/face-reference",
+    response_model=FaceEnrollmentResponse,
+)
+def remove_face_reference(
+    user_id: int,
+    session: DatabaseSession,
+    _current_user: AdministratorUser,
+) -> FaceEnrollmentResponse:
+    return FaceIdentityService(session).remove_reference(user_id)
+
+
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     user_id: int,
     session: DatabaseSession,
     _current_user: AdministratorUser,
 ) -> Response:
-    UserService(session).delete(user_id)
+    user_service = UserService(session)
+    user = user_service.get(user_id)
+    if user.face_enrolled:
+        FaceIdentityService(session).remove_reference(user_id)
+    user_service.delete(user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

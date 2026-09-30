@@ -53,6 +53,21 @@ export async function deleteUser(userId: number): Promise<void> {
   await apiClient.delete(`/users/${userId}`);
 }
 
+export async function enrollFaceReference(
+  userId: number,
+  image: File,
+): Promise<void> {
+  const formData = new FormData();
+  formData.append("image", image);
+  await apiClient.post(`/users/${userId}/face-reference`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+}
+
+export async function removeFaceReference(userId: number): Promise<void> {
+  await apiClient.delete(`/users/${userId}/face-reference`);
+}
+
 export function getUserApiErrorMessage(error: unknown): string {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) {
     return "No se pudo completar la operación con el usuario.";

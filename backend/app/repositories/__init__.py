@@ -35,3 +35,6 @@ __all__ = [
     "UserRepository",
     "VectorRepository",
 ]
+from app.repositories.face_verification_repository import FaceVerificationRepository
+
+__all__ = ["FaceVerificationRepository"]

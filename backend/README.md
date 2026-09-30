@@ -161,6 +161,17 @@ Authorization: Bearer <accessToken>
 
 `GET /api/v1/auth/me` devuelve el usuario de la sesión. En cada solicitud se comprueba que el usuario continúe registrado y activo. La función `require_roles` permite limitar endpoints a uno o más roles.
 
+### Verificación facial con AWS
+
+El acceso por DNI puede completar una verificación real con Amazon Rekognition Face
+Liveness y una colección facial exclusiva de MatrixFlow. La integración permanece
+desactivada por defecto para no consumir AWS accidentalmente. Incluye registro facial
+desde **Usuarios**, sesiones de un solo uso, límites de intentos, prueba de vida,
+coincidencia de identidad y emisión del JWT únicamente después de validar ambos pasos.
+
+La configuración completa de IAM, Cognito, Rekognition, Supabase y Vercel está en
+[`AWS_FACE_LIVENESS_SETUP.md`](AWS_FACE_LIVENESS_SETUP.md).
+
 ### Probar vectores desde Swagger
 
 1. Ejecuta `POST /api/v1/auth/login` con `analista@matrixflow.pe` y

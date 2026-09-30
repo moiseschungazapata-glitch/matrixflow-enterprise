@@ -14,12 +14,24 @@ export interface IdentityProfile {
   maskedDni: string;
   nationality: string;
   role: Role;
+  faceEnrolled: boolean;
 }
 
-interface LoginResponse {
+export interface AuthenticationSession {
   accessToken: string;
   tokenType: "bearer";
   user: AuthenticatedUser;
+}
+
+export interface FaceLivenessSession {
+  verificationId: string;
+  sessionId: string;
+  region: string;
+  expiresAt: string;
+}
+
+interface FaceLoginResponse extends AuthenticationSession {
+  verified: true;
 }
 
 interface ApiValidationIssue {
@@ -33,12 +45,28 @@ interface ApiErrorResponse {
 export async function authenticate(
   email: string,
   password: string,
-): Promise<LoginResponse> {
-  const response = await apiClient.post<LoginResponse>("/auth/login", {
+): Promise<AuthenticationSession> {
+  const response = await apiClient.post<AuthenticationSession>("/auth/login", {
     email,
     password,
   });
 
+  return response.data;
+}
+
+export async function createFaceLivenessSession(
+  dni: string,
+): Promise<FaceLivenessSession> {
+  const response = await apiClient.post<FaceLivenessSession>("/auth/face/sessions", { dni });
+  return response.data;
+}
+
+export async function completeFaceLivenessSession(
+  verificationId: string,
+): Promise<FaceLoginResponse> {
+  const response = await apiClient.post<FaceLoginResponse>(
+    `/auth/face/sessions/${verificationId}/complete`,
+  );
   return response.data;
 }
 
@@ -89,4 +117,19 @@ export function getAuthenticationErrorMessage(error: unknown): string {
   }
 
   return "No se pudo iniciar sesión.";
+}
+
+export function getFaceVerificationErrorMessage(error: unknown): string {
+  if (!axios.isAxiosError<ApiErrorResponse>(error)) {
+    return "No se pudo completar la verificación facial.";
+  }
+
+  if (!error.response) {
+    return "No se pudo conectar con el servicio de verificación.";
+  }
+
+  const detail = error.response.data?.detail;
+  if (typeof detail === "string") return detail;
+
+  return "La verificación facial no pudo completarse. Inicia un intento nuevo.";
 }

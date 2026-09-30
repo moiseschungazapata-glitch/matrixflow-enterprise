@@ -18,6 +18,7 @@ from .operation import Operation
 from .operation_input import OperationInput
 from .operation_result import OperationResult
 from .audit_log import AuditLog
+from .face_verification_attempt import FaceVerificationAttempt
 __all__ = [
     "Base",
     "Role",
@@ -39,4 +40,5 @@ __all__ = [
     "OperationInput",
     "OperationResult",
     "AuditLog",
+    "FaceVerificationAttempt",
 ]
