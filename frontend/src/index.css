@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #0f172a;
@@ -9,8 +11,59 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
+html { background: #f8fafc; }
+body { margin: 0; min-width: 320px; min-height: 100vh; transition: background-color 180ms ease, color 180ms ease; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 ::selection { background: #bfdbfe; color: #172554; }
+
+/* Dark-mode compatibility for the existing utility-based screens. */
+.dark { background: #020617; color: #e2e8f0; }
+.dark body, .dark #root { min-height: 100vh; background: #020617; color: #e2e8f0; }
+
+.dark .bg-white { background-color: #0f172a; }
+.dark .bg-white\/95 { background-color: rgb(15 23 42 / 0.95); }
+.dark .bg-slate-50 { background-color: #020617; }
+.dark .bg-slate-100 { background-color: #1e293b; }
+.dark .bg-slate-200 { background-color: #334155; }
+.dark .bg-slate-300 { background-color: #475569; }
+.dark .bg-blue-50 { background-color: rgb(30 64 175 / 0.22); }
+.dark .bg-blue-50\/70 { background-color: rgb(30 64 175 / 0.2); }
+.dark .bg-cyan-50 { background-color: rgb(14 116 144 / 0.2); }
+.dark .bg-violet-50 { background-color: rgb(109 40 217 / 0.2); }
+.dark .bg-emerald-50 { background-color: rgb(5 150 105 / 0.18); }
+.dark .bg-amber-50 { background-color: rgb(217 119 6 / 0.18); }
+.dark .bg-rose-50 { background-color: rgb(225 29 72 / 0.16); }
+
+.dark .border-slate-100, .dark .border-slate-200 { border-color: #334155; }
+.dark .border-slate-300 { border-color: #475569; }
+.dark .border-blue-100 { border-color: rgb(37 99 235 / 0.45); }
+.dark .border-rose-100, .dark .border-rose-200 { border-color: rgb(225 29 72 / 0.4); }
+.dark .divide-slate-100 > :not(:last-child) { border-color: #334155; }
+
+.dark .text-slate-950, .dark .text-slate-900 { color: #f8fafc; }
+.dark .text-slate-800 { color: #e2e8f0; }
+.dark .text-slate-700, .dark .text-slate-600 { color: #cbd5e1; }
+.dark .text-blue-700, .dark .text-blue-800 { color: #93c5fd; }
+.dark .text-cyan-700 { color: #67e8f9; }
+.dark .text-violet-700 { color: #c4b5fd; }
+.dark .text-emerald-700 { color: #6ee7b7; }
+.dark .text-amber-700 { color: #fcd34d; }
+.dark .text-rose-700 { color: #fda4af; }
+
+.dark input, .dark select, .dark textarea {
+  border-color: #475569;
+  background-color: #020617;
+  color: #f8fafc;
+}
+.dark input::placeholder, .dark textarea::placeholder { color: #64748b; }
+.dark option { background-color: #0f172a; color: #f8fafc; }
+
+.dark .hover\:bg-slate-50:hover, .dark .hover\:bg-slate-100:hover { background-color: #1e293b; }
+.dark .hover\:bg-blue-50:hover { background-color: rgb(30 64 175 / 0.3); }
+.dark .hover\:bg-rose-50:hover { background-color: rgb(225 29 72 / 0.24); }
+.dark .hover\:text-slate-700:hover { color: #f1f5f9; }
+.dark .ring-white { --tw-ring-color: #0f172a; }
+.dark .shadow-slate-200\/40, .dark .shadow-slate-300 { --tw-shadow-color: rgb(2 6 23 / 0.55); }
+.dark ::selection { background: #1d4ed8; color: #eff6ff; }

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { loginSchema, type LoginFormData } from "../../schemas";
+import ThemeToggle from "../../components/common/ThemeToggle";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +21,8 @@ export default function Login() {
   };
 
   return (
-    <div className="grid min-h-screen bg-white lg:grid-cols-2">
+    <div className="relative grid min-h-screen bg-white transition-colors lg:grid-cols-2 dark:bg-slate-950">
+      <div className="absolute right-5 top-5 z-20"><ThemeToggle /></div>
       <section className="relative hidden overflow-hidden bg-slate-900 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" /><div className="absolute -bottom-32 left-20 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
         <div className="relative flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 text-xl font-black">M</div><div><p className="font-bold tracking-[0.16em]">MATRIXFLOW</p><p className="text-xs tracking-[0.24em] text-cyan-400">ENTERPRISE</p></div></div>

@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './hooks/useAuth.tsx'
 import { MockStoreProvider } from './hooks/useMockStore.tsx'
+import { ThemeProvider } from './hooks/useTheme.tsx'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -13,11 +14,13 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <MockStoreProvider>
-          <App />
-        </MockStoreProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <MockStoreProvider>
+            <App />
+          </MockStoreProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,
 )
