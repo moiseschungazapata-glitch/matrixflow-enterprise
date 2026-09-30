@@ -339,6 +339,8 @@ async def test_administrative_endpoints_complete_crud_lifecycle(
             headers=headers,
             json={
                 "name": "Usuario CRUD",
+                "dni": "87654321",
+                "nationality": "Peruana",
                 "email": "usuario-crud@matrixflow.pe",
                 "password": "demo123",
                 "role": "Consulta",
@@ -393,6 +395,8 @@ async def test_administrative_endpoints_complete_crud_lifecycle(
     assert branch.status_code == 201
     assert product.status_code == 201
     assert user.status_code == 201
+    assert user.json()["dni"] == "87654321"
+    assert user.json()["nationality"] == "Peruana"
     assert updated_company.json()["sector"] == "Servicios"
     assert updated_branch.json()["city"] == "Callao"
     assert updated_product.json()["price"] == 125.5

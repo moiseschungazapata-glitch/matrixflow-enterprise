@@ -30,12 +30,16 @@ class UserService(BaseService):
         email = str(data.email).lower()
         if self.users.get_by_email(email) is not None:
             raise ResourceConflictError("Ya existe un usuario con ese correo.")
+        if data.dni is not None and self.users.get_by_dni(data.dni) is not None:
+            raise ResourceConflictError("Ya existe un usuario con ese DNI.")
 
         password_hash = hash_password(data.password)
         with self.transaction():
             role = self._get_or_create_role(data.role.value)
             user = User(
                 name=data.name,
+                dni=data.dni,
+                nationality=data.nationality,
                 email=email,
                 password_hash=password_hash,
                 role_record=role,
@@ -55,6 +59,12 @@ class UserService(BaseService):
             existing = self.users.get_by_email(email)
             if existing is not None and existing.id != user.id:
                 raise ResourceConflictError("Ya existe un usuario con ese correo.")
+
+        dni = values.get("dni")
+        if dni is not None:
+            existing = self.users.get_by_dni(dni)
+            if existing is not None and existing.id != user.id:
+                raise ResourceConflictError("Ya existe un usuario con ese DNI.")
 
         password = values.pop("password", None)
         if password is not None:

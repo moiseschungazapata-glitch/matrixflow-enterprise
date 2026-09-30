@@ -1,6 +1,13 @@
 """Validated HTTP contracts shared by routes and services."""
 
-from app.schemas.auth import AuthenticatedUser, LoginRequest, LoginResponse, TokenPayload
+from app.schemas.auth import (
+    AuthenticatedUser,
+    DniIdentificationRequest,
+    IdentityProfileResponse,
+    LoginRequest,
+    LoginResponse,
+    TokenPayload,
+)
 from app.schemas.branch import BranchCreate, BranchResponse, BranchUpdate
 from app.schemas.company import CompanyCreate, CompanyResponse, CompanyUpdate
 from app.schemas.inventory import (
@@ -26,6 +33,8 @@ __all__ = [
     "CompanyCreate",
     "CompanyResponse",
     "CompanyUpdate",
+    "DniIdentificationRequest",
+    "IdentityProfileResponse",
     "InventoryAdjustment",
     "InventoryCreate",
     "InventoryMovementCreate",

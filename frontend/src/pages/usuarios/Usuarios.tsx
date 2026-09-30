@@ -21,6 +21,8 @@ import type { Role, UserRecord } from "../../types";
 
 const emptyUser: UserFormData = {
   name: "",
+  dni: "",
+  nationality: "",
   email: "",
   password: "",
   role: "Consulta",
@@ -109,7 +111,12 @@ export default function Usuarios() {
     setFeedback(null);
     setEditing(user);
     saveMutation.reset();
-    reset({ ...user, password: "" });
+    reset({
+      ...user,
+      dni: user.dni ?? "",
+      nationality: user.nationality ?? "",
+      password: "",
+    });
     setOpen(true);
   };
 
@@ -128,6 +135,8 @@ export default function Usuarios() {
 
     const baseData = {
       name: data.name,
+      dni: data.dni || null,
+      nationality: data.nationality || null,
       email: data.email,
       role: editingSelf && editing ? editing.role : data.role,
       status: editingSelf && editing ? editing.status : data.status,
@@ -225,7 +234,7 @@ export default function Usuarios() {
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500"><UserRound size={17} /></div>
-                          <div><p className="font-semibold text-slate-900">{user.name}{user.id === currentUser?.id && <span className="ml-2 text-xs font-medium text-blue-600">Tú</span>}</p><p className="text-xs text-slate-500">{user.email}</p></div>
+                          <div><p className="font-semibold text-slate-900">{user.name}{user.id === currentUser?.id && <span className="ml-2 text-xs font-medium text-blue-600">Tú</span>}</p><p className="text-xs text-slate-500">{user.email}</p>{user.dni && <p className="mt-0.5 text-xs text-slate-400">DNI ••••{user.dni.slice(-4)}{user.nationality ? ` · ${user.nationality}` : ""}</p>}</div>
                         </div>
                       </td>
                       <td className="px-5 py-4 text-slate-600">{user.role}</td>
@@ -261,6 +270,20 @@ export default function Usuarios() {
             <input {...register("name")} className={fieldClass} autoComplete="name" />
             {errors.name && <span className="mt-1 block text-xs text-rose-600">{errors.name.message}</span>}
           </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-700">
+              DNI
+              <input {...register("dni", { onChange: (event) => { event.target.value = event.target.value.replace(/\D/g, "").slice(0, 8); } })} inputMode="numeric" maxLength={8} className={fieldClass} autoComplete="off" />
+              {errors.dni && <span className="mt-1 block text-xs text-rose-600">{errors.dni.message}</span>}
+            </label>
+
+            <label className="block text-sm font-medium text-slate-700">
+              Nacionalidad
+              <input {...register("nationality")} className={fieldClass} placeholder="Ej. Peruana" autoComplete="country-name" />
+              {errors.nationality && <span className="mt-1 block text-xs text-rose-600">{errors.nationality.message}</span>}
+            </label>
+          </div>
 
           <label className="block text-sm font-medium text-slate-700">
             Correo

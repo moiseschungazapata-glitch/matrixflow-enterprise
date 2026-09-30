@@ -6,6 +6,8 @@ type UserStatus = UserRecord["status"];
 
 export interface CreateUserInput {
   name: string;
+  dni?: string | null;
+  nationality?: string | null;
   email: string;
   password: string;
   role: Role;
@@ -14,6 +16,8 @@ export interface CreateUserInput {
 
 export interface UpdateUserInput {
   name?: string;
+  dni?: string | null;
+  nationality?: string | null;
   email?: string;
   password?: string;
   role?: Role;

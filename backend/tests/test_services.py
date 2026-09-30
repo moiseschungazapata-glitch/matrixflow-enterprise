@@ -92,6 +92,8 @@ def test_users_store_hashes_and_never_return_passwords(session: Session) -> None
     response = UserService(session).create(
         UserCreate(
             name="Ana Torres",
+            dni="12345678",
+            nationality="Peruana",
             email="ana@matrixflow.pe",
             password="ClaveSegura123",
             role="Administrador",
@@ -102,6 +104,8 @@ def test_users_store_hashes_and_never_return_passwords(session: Session) -> None
     assert stored is not None
     assert stored.password_hash != "ClaveSegura123"
     assert verify_password("ClaveSegura123", stored.password_hash)
+    assert stored.dni == "12345678"
+    assert response.nationality == "Peruana"
     assert "password" not in response.model_dump()
 
 

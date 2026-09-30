@@ -96,6 +96,8 @@ export interface OperationRecord {
 export interface UserRecord {
   id: number;
   name: string;
+  dni: string | null;
+  nationality: string | null;
   email: string;
   role: Role;
   status: "Activo" | "Inactivo";

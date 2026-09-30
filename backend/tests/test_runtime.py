@@ -72,6 +72,7 @@ async def test_auth_endpoints_are_published() -> None:
 
     assert response.status_code == 200
     paths = response.json()["paths"]
+    assert "post" in paths["/api/v1/auth/identify"]
     assert "post" in paths["/api/v1/auth/login"]
     assert "get" in paths["/api/v1/auth/me"]
 

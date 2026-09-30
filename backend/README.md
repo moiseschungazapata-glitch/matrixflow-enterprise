@@ -110,6 +110,49 @@ Content-Type: application/json
 }
 ```
 
+La pantalla de identificación por DNI consulta el perfil activo sin devolver el
+correo, el identificador interno ni el DNI completo:
+
+```http
+POST /api/v1/auth/identify
+Content-Type: application/json
+
+{
+  "dni": "12345678"
+}
+```
+
+```json
+{
+  "name": "Usuario de ejemplo",
+  "maskedDni": "••••5678",
+  "nationality": "Peruana",
+  "role": "Administrador"
+}
+```
+
+Este endpoint sólo identifica la cuenta; no emite un JWT ni reemplaza una
+verificación biométrica real. Antes de desplegar esta versión sobre una base
+existente, ejecuta `alembic upgrade head` para agregar `dni` y `nationality` a
+`users`. Ambos campos se pueden completar desde el módulo **Usuarios** o mediante
+`PATCH /api/v1/users/{user_id}` en Swagger.
+
+Si no se dispone de Alembic en el entorno de despliegue, la misma actualización
+puede aplicarse una sola vez desde **Supabase > SQL Editor**:
+
+```sql
+alter table public.users
+  add column if not exists dni varchar(8),
+  add column if not exists nationality varchar(80);
+
+create unique index if not exists ix_users_dni
+  on public.users (dni);
+```
+
+Aplica esta actualización antes de desplegar el backend que consulta los nuevos
+campos. Los datos personales de cada cuenta deben registrarse en Supabase o desde
+la pantalla **Usuarios**; no deben escribirse en el código fuente.
+
 Los recursos protegidos reciben el token en la cabecera `Authorization`:
 
 ```http

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import AuthenticationError
+from app.core.exceptions import AuthenticationError, ResourceNotFoundError
 from app.core.security import (
     create_access_token,
     decode_access_token,
@@ -9,7 +9,13 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth import AuthenticatedUser, LoginRequest, LoginResponse
+from app.schemas.auth import (
+    AuthenticatedUser,
+    DniIdentificationRequest,
+    IdentityProfileResponse,
+    LoginRequest,
+    LoginResponse,
+)
 from app.schemas.common import RecordStatus
 
 
@@ -38,6 +44,18 @@ class AuthService:
             role=authenticated_user.role,
         )
         return LoginResponse(access_token=access_token, user=authenticated_user)
+
+    def identify_by_dni(self, data: DniIdentificationRequest) -> IdentityProfileResponse:
+        user = self.users.get_by_dni(data.dni)
+        if user is None or user.status != RecordStatus.ACTIVE.value:
+            raise ResourceNotFoundError("No se encontró una cuenta activa con ese DNI.")
+
+        return IdentityProfileResponse(
+            name=user.name,
+            masked_dni=f"••••{data.dni[-4:]}",
+            nationality=user.nationality or "No registrada",
+            role=user.role,
+        )
 
     def current_user(self, token: str) -> AuthenticatedUser:
         payload = decode_access_token(token)

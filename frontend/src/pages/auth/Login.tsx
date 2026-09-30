@@ -20,6 +20,11 @@ import { useNavigate } from "react-router-dom";
 import ThemeToggle from "../../components/common/ThemeToggle";
 import { useAuth } from "../../hooks/useAuth";
 import {
+  getIdentificationErrorMessage,
+  identifyByDni,
+  type IdentityProfile,
+} from "../../services/api/auth";
+import {
   dniLoginSchema,
   loginSchema,
   type DniLoginFormData,
@@ -30,12 +35,6 @@ type AccessMode = "dni" | "legacy";
 type DniStep = "identify" | "profile" | "face";
 type CameraStatus = "off" | "starting" | "ready" | "error";
 type FaceStatus = "pending" | "verifying" | "verified";
-
-const demoProfile = {
-  fullName: "Ana Torres Mendoza",
-  nationality: "Peruana",
-  role: "Administrador",
-};
 
 const steps: { id: DniStep; label: string }[] = [
   { id: "identify", label: "DNI" },
@@ -48,7 +47,8 @@ const inputClass = "w-full rounded-xl border border-slate-300 px-4 py-3 text-sm 
 export default function Login() {
   const [accessMode, setAccessMode] = useState<AccessMode>("dni");
   const [dniStep, setDniStep] = useState<DniStep>("identify");
-  const [identifiedDni, setIdentifiedDni] = useState("");
+  const [identityProfile, setIdentityProfile] = useState<IdentityProfile | null>(null);
+  const [identityError, setIdentityError] = useState("");
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>("off");
   const [cameraError, setCameraError] = useState("");
   const [faceStatus, setFaceStatus] = useState<FaceStatus>("pending");
@@ -64,7 +64,7 @@ export default function Login() {
     register: registerDni,
     handleSubmit: handleDniSubmit,
     reset: resetDni,
-    formState: { errors: dniErrors },
+    formState: { errors: dniErrors, isSubmitting: isIdentifying },
   } = useForm<DniLoginFormData>({
     resolver: zodResolver(dniLoginSchema),
     defaultValues: { dni: "" },
@@ -97,9 +97,16 @@ export default function Login() {
     if (verificationTimerRef.current !== null) window.clearTimeout(verificationTimerRef.current);
   }, []);
 
-  const identify = ({ dni }: DniLoginFormData) => {
-    setIdentifiedDni(dni);
-    setDniStep("profile");
+  const identify = async ({ dni }: DniLoginFormData) => {
+    setIdentityError("");
+    try {
+      const profile = await identifyByDni(dni);
+      setIdentityProfile(profile);
+      setDniStep("profile");
+    } catch (error) {
+      setIdentityProfile(null);
+      setIdentityError(getIdentificationErrorMessage(error));
+    }
   };
 
   const startCamera = async () => {
@@ -139,7 +146,8 @@ export default function Login() {
     stopCamera();
     setDniStep("identify");
     setFaceStatus("pending");
-    setIdentifiedDni("");
+    setIdentityProfile(null);
+    setIdentityError("");
     setCameraError("");
     resetDni({ dni: "" });
   };
@@ -161,8 +169,6 @@ export default function Login() {
   };
 
   const currentStepIndex = steps.findIndex((step) => step.id === dniStep);
-  const maskedDni = identifiedDni ? `••••${identifiedDni.slice(-4)}` : "";
-
   return (
     <div className="relative grid min-h-screen bg-white transition-colors lg:grid-cols-2 dark:bg-slate-950">
       <div className="absolute right-5 top-5 z-30"><ThemeToggle /></div>
@@ -259,18 +265,20 @@ export default function Login() {
                       {dniErrors.dni && <span className="mt-1 block text-xs text-rose-600">{dniErrors.dni.message}</span>}
                     </label>
 
-                    <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-                      Continuar<ArrowRight size={17} />
+                    {identityError && <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{identityError}</p>}
+
+                    <button disabled={isIdentifying} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+                      {isIdentifying ? <><LoaderCircle className="animate-spin" size={17} />Consultando...</> : <>Continuar<ArrowRight size={17} /></>}
                     </button>
                   </form>
 
                   <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-xs leading-5 text-slate-600">
-                    Para revisar este diseño puedes usar cualquier número de ocho dígitos. Todavía no se consulta Supabase.
+                    El DNI se consulta de forma segura en la base de datos mediante FastAPI. Debe estar registrado en una cuenta activa.
                   </div>
                 </div>
               )}
 
-              {dniStep === "profile" && (
+              {dniStep === "profile" && identityProfile && (
                 <div>
                   <button type="button" onClick={returnToDni} className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"><ArrowLeft size={16} />Cambiar DNI</button>
                   <p className="text-sm font-semibold text-blue-600">Cuenta localizada</p>
@@ -279,13 +287,13 @@ export default function Login() {
 
                   <div className="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <div className="flex items-center gap-4 border-b border-slate-100 bg-slate-50 p-5">
-                      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-600 text-lg font-bold text-white">AT</div>
-                      <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">Perfil encontrado</p><h3 className="mt-1 font-semibold text-slate-950">{demoProfile.fullName}</h3></div>
+                      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-600 text-lg font-bold text-white">{identityProfile.name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase()}</div>
+                      <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">Perfil encontrado</p><h3 className="mt-1 font-semibold text-slate-950">{identityProfile.name}</h3></div>
                     </div>
                     <dl className="space-y-4 p-5 text-sm">
-                      <div className="flex items-center gap-3"><IdCard className="text-slate-400" size={18} /><div><dt className="text-xs text-slate-500">DNI</dt><dd className="mt-0.5 font-semibold text-slate-800">{maskedDni}</dd></div></div>
-                      <div className="flex items-center gap-3"><Globe2 className="text-slate-400" size={18} /><div><dt className="text-xs text-slate-500">Nacionalidad</dt><dd className="mt-0.5 font-semibold text-slate-800">{demoProfile.nationality}</dd></div></div>
-                      <div className="flex items-center gap-3"><UserCog className="text-slate-400" size={18} /><div><dt className="text-xs text-slate-500">Rol de acceso</dt><dd className="mt-0.5 font-semibold text-slate-800">{demoProfile.role}</dd></div></div>
+                      <div className="flex items-center gap-3"><IdCard className="text-slate-400" size={18} /><div><dt className="text-xs text-slate-500">DNI</dt><dd className="mt-0.5 font-semibold text-slate-800">{identityProfile.maskedDni}</dd></div></div>
+                      <div className="flex items-center gap-3"><Globe2 className="text-slate-400" size={18} /><div><dt className="text-xs text-slate-500">Nacionalidad</dt><dd className="mt-0.5 font-semibold text-slate-800">{identityProfile.nationality}</dd></div></div>
+                      <div className="flex items-center gap-3"><UserCog className="text-slate-400" size={18} /><div><dt className="text-xs text-slate-500">Rol de acceso</dt><dd className="mt-0.5 font-semibold text-slate-800">{identityProfile.role}</dd></div></div>
                     </dl>
                   </div>
 

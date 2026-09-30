@@ -58,6 +58,14 @@ export const vectorSchema = z.object({
 
 export const userSchema = z.object({
   name: z.string().min(3, "Ingresa el nombre"),
+  dni: z.string().refine(
+    (value) => value === "" || /^\d{8}$/.test(value),
+    "El DNI debe contener exactamente 8 dígitos",
+  ),
+  nationality: z.string().refine(
+    (value) => value === "" || value.length >= 2,
+    "Ingresa una nacionalidad válida",
+  ),
   email: z.string().email("Ingresa un correo válido"),
   password: z.string()
     .max(128, "La contraseña no puede superar 128 caracteres")

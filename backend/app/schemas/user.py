@@ -5,6 +5,8 @@ from app.schemas.common import APIModel, PositiveId, RecordStatus, UpdateModel, 
 
 class UserCreate(APIModel):
     name: str = Field(min_length=3, max_length=150)
+    dni: str | None = Field(default=None, pattern=r"^\d{8}$")
+    nationality: str | None = Field(default=None, min_length=2, max_length=80)
     email: EmailStr
     password: str = Field(min_length=6, max_length=128)
     role: UserRole
@@ -13,6 +15,8 @@ class UserCreate(APIModel):
 
 class UserUpdate(UpdateModel):
     name: str | None = Field(default=None, min_length=3, max_length=150)
+    dni: str | None = Field(default=None, pattern=r"^\d{8}$")
+    nationality: str | None = Field(default=None, min_length=2, max_length=80)
     email: EmailStr | None = None
     password: str | None = Field(default=None, min_length=6, max_length=128)
     role: UserRole | None = None
@@ -22,6 +26,8 @@ class UserUpdate(UpdateModel):
 class UserResponse(APIModel):
     id: PositiveId
     name: str = Field(min_length=3, max_length=150)
+    dni: str | None = Field(default=None, pattern=r"^\d{8}$")
+    nationality: str | None = Field(default=None, min_length=2, max_length=80)
     email: EmailStr
     role: UserRole
     status: RecordStatus

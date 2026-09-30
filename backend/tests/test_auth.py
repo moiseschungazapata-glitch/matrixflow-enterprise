@@ -11,11 +11,11 @@ import app.models  # noqa: F401 - registers every SQLAlchemy table
 from app.core.config import Settings
 from app.core.database import Base, get_db
 from app.api.dependencies import require_roles
-from app.core.exceptions import AuthenticationError, InvalidTokenError
+from app.core.exceptions import AuthenticationError, InvalidTokenError, ResourceNotFoundError
 from app.core.security import create_access_token, decode_access_token
 from app.main import app
 from app.models.user import User
-from app.schemas.auth import AuthenticatedUser, LoginRequest
+from app.schemas.auth import AuthenticatedUser, DniIdentificationRequest, LoginRequest
 from app.schemas.common import UserRole
 from app.schemas.user import UserCreate
 from app.services.auth_service import AuthService
@@ -43,6 +43,8 @@ def create_user(session: Session, *, status: str = "Activo") -> User:
     response = UserService(session).create(
         UserCreate.model_validate({
             "name": "Ana Torres",
+            "dni": "12345678",
+            "nationality": "Peruana",
             "email": "admin@matrixflow.pe",
             "password": "demo123",
             "role": "Administrador",
@@ -113,6 +115,24 @@ def test_inactive_user_cannot_login(session: Session) -> None:
         )
 
 
+def test_auth_service_identifies_only_active_users_by_dni(session: Session) -> None:
+    create_user(session)
+
+    profile = AuthService(session).identify_by_dni(
+        DniIdentificationRequest(dni="12345678")
+    )
+
+    assert profile.name == "Ana Torres"
+    assert profile.masked_dni == "••••5678"
+    assert profile.nationality == "Peruana"
+    assert profile.role.value == "Administrador"
+
+    with pytest.raises(ResourceNotFoundError):
+        AuthService(session).identify_by_dni(
+            DniIdentificationRequest(dni="87654321")
+        )
+
+
 def test_role_dependency_allows_only_configured_roles() -> None:
     administrator = AuthenticatedUser(
         id=1,
@@ -142,6 +162,18 @@ async def test_login_and_me_endpoints_use_bearer_authentication(session: Session
             transport=ASGITransport(app=app),
             base_url="http://testserver",
         ) as client:
+            identity_response = await client.post(
+                "/api/v1/auth/identify",
+                json={"dni": "12345678"},
+            )
+            assert identity_response.status_code == 200
+            assert identity_response.json() == {
+                "name": "Ana Torres",
+                "maskedDni": "••••5678",
+                "nationality": "Peruana",
+                "role": "Administrador",
+            }
+
             rejected_login = await client.post(
                 "/api/v1/auth/login",
                 json={"email": "admin@matrixflow.pe", "password": "incorrecta"},

@@ -11,6 +11,17 @@ class LoginRequest(APIModel):
     password: str = Field(min_length=6, max_length=128)
 
 
+class DniIdentificationRequest(APIModel):
+    dni: str = Field(pattern=r"^\d{8}$")
+
+
+class IdentityProfileResponse(APIModel):
+    name: str = Field(min_length=3, max_length=150)
+    masked_dni: str = Field(pattern=r"^••••\d{4}$")
+    nationality: str = Field(min_length=2, max_length=80)
+    role: UserRole
+
+
 class AuthenticatedUser(APIModel):
     id: PositiveId
     name: str = Field(min_length=3, max_length=150)

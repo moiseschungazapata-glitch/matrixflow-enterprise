@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.auth import LoginRequest
+from app.schemas.auth import DniIdentificationRequest, LoginRequest
 from app.schemas.company import CompanyCreate, CompanyResponse, CompanyUpdate
 from app.schemas.inventory import InventoryAdjustment, InventoryMovementCreate
 from app.schemas.matrix import MatrixCreate
@@ -199,3 +199,10 @@ def test_user_password_and_email_are_validated() -> None:
             "role": "Administrador",
             "status": "Activo",
         })
+
+
+def test_dni_identification_requires_eight_digits() -> None:
+    assert DniIdentificationRequest(dni="12345678").dni == "12345678"
+
+    with pytest.raises(ValidationError):
+        DniIdentificationRequest(dni="1234")

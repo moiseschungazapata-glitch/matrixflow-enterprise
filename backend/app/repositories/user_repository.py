@@ -14,6 +14,10 @@ class UserRepository(BaseRepository[User]):
         statement = select(User).where(func.lower(User.email) == email.lower())
         return self.session.scalar(statement)
 
+    def get_by_dni(self, dni: str) -> User | None:
+        statement = select(User).where(User.dni == dni)
+        return self.session.scalar(statement)
+
 
 class RoleRepository(BaseRepository[Role]):
     def __init__(self, session: Session) -> None:
