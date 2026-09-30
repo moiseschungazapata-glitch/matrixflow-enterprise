@@ -178,7 +178,14 @@ create index if not exists ix_face_verification_attempts_user_id
 
 create index if not exists ix_face_verification_attempts_created_at
   on public.face_verification_attempts (created_at);
+
+update public.alembic_version
+set version_num = '20260930_0003';
 ```
+
+Comprobar después con `select version_num from public.alembic_version;`. Debe devolver
+`20260930_0003`; esto evita que una migración futura intente repetir los cambios aplicados
+manualmente.
 
 ## 6. Variables del backend en Vercel
 
