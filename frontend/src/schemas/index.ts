@@ -55,6 +55,9 @@ export const vectorSchema = z.object({
 export const userSchema = z.object({
   name: z.string().min(3, "Ingresa el nombre"),
   email: z.string().email("Ingresa un correo válido"),
+  password: z.string()
+    .max(128, "La contraseña no puede superar 128 caracteres")
+    .refine((value) => value === "" || value.length >= 6, "La contraseña debe tener al menos 6 caracteres"),
   role: z.enum(["Administrador", "Analista", "Consulta"]),
   status: z.enum(["Activo", "Inactivo"]),
 });
