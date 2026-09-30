@@ -18,6 +18,85 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 ::selection { background: #bfdbfe; color: #172554; }
 
+/* MatrixFlow biometric experience. These layers are visual-only and never intercept
+   the controls rendered by the AWS Face Liveness component. */
+.identity-hero {
+  background:
+    radial-gradient(circle at 82% 8%, rgb(37 99 235 / 0.34), transparent 34%),
+    linear-gradient(145deg, #071329 0%, #0b1934 52%, #061b2e 100%);
+}
+
+.identity-hero-grid {
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgb(56 189 248 / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(56 189 248 / 0.08) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black, transparent 74%);
+}
+
+.identity-hero-wave {
+  opacity: 0.55;
+  background:
+    radial-gradient(ellipse at 20% 125%, transparent 48%, rgb(14 165 233 / 0.36) 48.5%, transparent 49.3%),
+    radial-gradient(ellipse at 62% 128%, transparent 52%, rgb(37 99 235 / 0.42) 52.4%, transparent 53.2%),
+    radial-gradient(ellipse at 92% 138%, transparent 56%, rgb(34 211 238 / 0.25) 56.4%, transparent 57.1%);
+}
+
+.biometric-camera-grid {
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgb(34 211 238 / 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(34 211 238 / 0.22) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at center, transparent 15%, black 100%);
+}
+
+.biometric-corner {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-color: #22d3ee;
+  filter: drop-shadow(0 0 7px rgb(34 211 238 / 0.7));
+}
+
+.biometric-corner-tl { left: 16%; top: 13%; border-left: 4px solid #22d3ee; border-top: 4px solid #22d3ee; border-radius: 10px 0 0; }
+.biometric-corner-tr { right: 16%; top: 13%; border-right: 4px solid #22d3ee; border-top: 4px solid #22d3ee; border-radius: 0 10px 0 0; }
+.biometric-corner-bl { bottom: 13%; left: 16%; border-bottom: 4px solid #22d3ee; border-left: 4px solid #22d3ee; border-radius: 0 0 0 10px; }
+.biometric-corner-br { right: 16%; bottom: 13%; border-right: 4px solid #22d3ee; border-bottom: 4px solid #22d3ee; border-radius: 0 0 10px; }
+
+.biometric-scan-line {
+  position: absolute;
+  z-index: 2;
+  left: 17%;
+  right: 17%;
+  height: 2px;
+  top: 20%;
+  background: linear-gradient(90deg, transparent, #67e8f9 18%, #fff 50%, #67e8f9 82%, transparent);
+  box-shadow: 0 0 14px 3px rgb(34 211 238 / 0.48);
+  animation: biometric-scan 3.2s ease-in-out infinite;
+}
+
+.biometric-liveness {
+  isolation: isolate;
+}
+
+@keyframes biometric-scan {
+  0%, 100% { top: 20%; opacity: 0.42; }
+  50% { top: 78%; opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .biometric-scan-line { animation: none; top: 50%; }
+}
+
+@media (max-width: 640px) {
+  .biometric-corner { width: 32px; height: 32px; }
+  .biometric-corner-tl, .biometric-corner-bl { left: 9%; }
+  .biometric-corner-tr, .biometric-corner-br { right: 9%; }
+  .biometric-scan-line { left: 10%; right: 10%; }
+}
+
 /* Dark-mode compatibility for the existing utility-based screens. */
 .dark { background: #020617; color: #e2e8f0; }
 .dark body, .dark #root { min-height: 100vh; background: #020617; color: #e2e8f0; }

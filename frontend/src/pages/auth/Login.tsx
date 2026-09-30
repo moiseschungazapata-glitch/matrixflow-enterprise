@@ -48,6 +48,17 @@ const steps: { id: DniStep; label: string }[] = [
 
 const inputClass = "w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10";
 
+const faceProgressStages = ["Encuadre", "Prueba de vida", "Identidad"];
+
+const faceProgressByStatus: Record<FaceStatus, number> = {
+  idle: 0,
+  creating: 0,
+  active: 1,
+  verifying: 2,
+  verified: 3,
+  error: 0,
+};
+
 export default function Login() {
   const [accessMode, setAccessMode] = useState<AccessMode>("dni");
   const [dniStep, setDniStep] = useState<DniStep>("identify");
@@ -172,29 +183,31 @@ export default function Login() {
     <div className="relative grid min-h-screen bg-white transition-colors lg:grid-cols-2 dark:bg-slate-950">
       <div className="absolute right-5 top-5 z-30"><ThemeToggle /></div>
 
-      <section className="relative hidden overflow-hidden bg-slate-900 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+      <section className="identity-hero relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="identity-hero-grid absolute inset-0" />
         <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" />
         <div className="absolute -bottom-32 left-20 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="identity-hero-wave absolute inset-x-0 bottom-0 h-72" />
 
         <div className="relative flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 text-xl font-black">M</div>
+          <div className="grid h-12 w-12 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-400/10 text-cyan-300 shadow-lg shadow-cyan-500/10"><ScanFace size={27} /></div>
           <div><p className="font-bold tracking-[0.16em]">MATRIXFLOW</p><p className="text-xs tracking-[0.24em] text-cyan-400">ENTERPRISE</p></div>
         </div>
 
         <div className="relative max-w-xl">
-          <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-cyan-300"><ScanFace size={27} /></div>
-          <h1 className="text-4xl font-bold leading-tight">Tu identidad, protegida en cada acceso.</h1>
+          <div className="mb-7 h-1 w-16 rounded-full bg-cyan-400" />
+          <h1 className="text-5xl font-bold leading-[1.08] tracking-tight">Tu identidad, <span className="text-cyan-400">protegida</span> en cada acceso.</h1>
           <p className="mt-5 text-lg leading-8 text-slate-300">Identificación por DNI y verificación facial para acceder de forma simple y segura a la información empresarial.</p>
           <div className="mt-10 grid grid-cols-3 gap-4">
-            {["Acceso por DNI", "Verificación facial", "Datos protegidos"].map((item) => <div key={item} className="rounded-xl border border-slate-700 bg-white/5 p-4 text-sm text-slate-200">{item}</div>)}
+            {["Acceso por DNI", "Verificación facial", "Datos protegidos"].map((item) => <div key={item} className="rounded-xl border border-slate-700/80 bg-white/5 p-4 text-sm text-slate-200 backdrop-blur-sm">{item}</div>)}
           </div>
         </div>
 
-        <p className="relative text-xs text-slate-500">MatrixFlow Enterprise · Prototipo de identidad segura</p>
+        <div className="relative flex items-center gap-2 text-xs text-slate-400"><ShieldCheck size={15} className="text-cyan-400" />MatrixFlow Enterprise · Identidad segura</div>
       </section>
 
       <section className="flex items-center justify-center px-5 py-20 sm:px-10">
-        <div className="w-full max-w-md">
+        <div className={`w-full transition-[max-width] duration-300 ${accessMode === "dni" && dniStep === "face" ? "max-w-2xl" : "max-w-md"}`}>
           <div className="mb-8 lg:hidden">
             <p className="font-bold tracking-[0.16em] text-slate-950">MATRIXFLOW</p>
             <p className="text-xs tracking-[0.24em] text-cyan-600">ENTERPRISE</p>
@@ -314,67 +327,107 @@ export default function Login() {
 
               {dniStep === "face" && (
                 <div>
-                  {faceStatus !== "verified" && <button type="button" onClick={() => { resetFaceVerification(); setDniStep("profile"); }} className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"><ArrowLeft size={16} />Volver al perfil</button>}
-                  <p className="text-sm font-semibold text-blue-600">Último paso</p>
-                  <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Verificación facial</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">AWS comprobará la prueba de vida y FastAPI comparará el rostro con la referencia registrada para esta cuenta.</p>
+                  {faceStatus !== "verified" && <button type="button" onClick={() => { resetFaceVerification(); setDniStep("profile"); }} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"><ArrowLeft size={16} />Volver al perfil</button>}
 
-                  {(faceStatus === "idle" || faceStatus === "error") && (
-                    <div className="mt-7 rounded-3xl bg-slate-950 p-8 text-center text-white shadow-xl">
-                      <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white/10 text-cyan-300"><Camera size={30} /></div>
-                      <p className="mt-4 text-sm font-semibold">Cámara lista para iniciar</p>
-                      <p className="mt-2 text-xs leading-5 text-slate-400">Usa iluminación uniforme, retira lentes oscuros y mantén el rostro visible.</p>
+                  <div className="biometric-card overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
+                    <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-7">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20"><ScanFace size={21} /></div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-950">Verificación biométrica</p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">Protección de identidad MatrixFlow</p>
+                        </div>
+                      </div>
+                      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide ${faceStatus === "active" ? "bg-emerald-50 text-emerald-700" : faceStatus === "verified" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
+                        <span className={`h-2 w-2 rounded-full ${faceStatus === "active" ? "animate-pulse bg-emerald-500" : faceStatus === "verified" ? "bg-blue-500" : "bg-slate-400"}`} />
+                        {faceStatus === "active" ? "En vivo" : faceStatus === "verifying" ? "Validando" : faceStatus === "verified" ? "Verificado" : "Protegido"}
+                      </div>
                     </div>
-                  )}
 
-                  {faceStatus === "creating" && (
-                    <div className="mt-7 grid min-h-72 place-items-center rounded-3xl bg-slate-950 text-center text-white shadow-xl">
-                      <div><LoaderCircle className="mx-auto animate-spin text-cyan-300" size={34} /><p className="mt-4 text-sm">Creando sesión segura...</p></div>
+                    <div className="px-4 py-5 sm:px-7 sm:py-6">
+                      <div className="text-center">
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-950">
+                          {faceStatus === "active" ? "Mantente quieto" : faceStatus === "verifying" ? "Confirmando identidad" : faceStatus === "verified" ? "Identidad verificada" : faceStatus === "creating" ? "Preparando cámara" : "Verifica tu identidad"}
+                        </h2>
+                        <p className="mt-1.5 text-sm text-slate-500">
+                          {faceStatus === "active" ? "Sigue las indicaciones de la cámara para completar la prueba de vida." : faceStatus === "verifying" ? "Comparamos de forma segura la prueba de vida con tu rostro registrado." : faceStatus === "verified" ? "La prueba de vida y el rostro registrado coincidieron correctamente." : "Coloca tu rostro dentro del marco y procura tener buena iluminación."}
+                        </p>
+                      </div>
+
+                      <div className={`biometric-camera-frame relative mt-5 min-h-72 overflow-hidden rounded-2xl border bg-slate-950 shadow-inner ${faceStatus === "verified" ? "border-emerald-400/60" : "border-cyan-400/40"}`}>
+                        <div className="biometric-camera-grid pointer-events-none absolute inset-0 z-10" aria-hidden="true" />
+                        <div className="pointer-events-none absolute inset-0 z-20" aria-hidden="true">
+                          <span className="biometric-corner biometric-corner-tl" />
+                          <span className="biometric-corner biometric-corner-tr" />
+                          <span className="biometric-corner biometric-corner-bl" />
+                          <span className="biometric-corner biometric-corner-br" />
+                          {(faceStatus === "active" || faceStatus === "verifying") && <span className="biometric-scan-line" />}
+                        </div>
+
+                        {(faceStatus === "idle" || faceStatus === "error") && (
+                          <div className="relative z-0 grid min-h-72 place-items-center p-8 text-center text-white">
+                            <div>
+                              <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-300"><Camera size={30} /></div>
+                              <p className="mt-4 text-sm font-semibold">Cámara lista para iniciar</p>
+                              <p className="mx-auto mt-2 max-w-xs text-xs leading-5 text-slate-400">Usa iluminación uniforme, retira lentes oscuros y mantén todo el rostro visible.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {faceStatus === "creating" && (
+                          <div className="relative z-0 grid min-h-72 place-items-center text-center text-white">
+                            <div><LoaderCircle className="mx-auto animate-spin text-cyan-300" size={34} /><p className="mt-4 text-sm">Creando sesión segura...</p></div>
+                          </div>
+                        )}
+
+                        {faceStatus === "active" && faceSession && (
+                          <div className="biometric-liveness relative z-0 min-h-72">
+                            <FaceLivenessDetector
+                              key={faceSession.sessionId}
+                              sessionId={faceSession.sessionId}
+                              region={faceSession.region}
+                              onAnalysisComplete={finishFaceVerification}
+                              onUserCancel={resetFaceVerification}
+                              onError={() => {
+                                setFaceSession(null);
+                                setFaceStatus("error");
+                                setFaceError("La sesión facial se interrumpió. Crea un intento nuevo.");
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        {faceStatus === "verifying" && (
+                          <div className="relative z-0 grid min-h-72 place-items-center p-8 text-center text-white">
+                            <div><ScanFace className="mx-auto animate-pulse text-cyan-300" size={52} /><p className="mt-4 font-semibold">Analizando prueba biométrica...</p><p className="mt-1 text-xs text-slate-400">Este proceso puede tardar unos segundos.</p></div>
+                          </div>
+                        )}
+
+                        {faceStatus === "verified" && (
+                          <div className="relative z-0 grid min-h-72 place-items-center bg-emerald-950/90 p-8 text-center text-white">
+                            <div><CheckCircle2 className="mx-auto text-emerald-300" size={64} /><h3 className="mt-5 text-xl font-bold">Acceso confirmado</h3><p className="mt-2 text-sm leading-6 text-emerald-100/80">Tu identidad fue validada de manera segura.</p></div>
+                          </div>
+                        )}
+                      </div>
+
+                      <FaceVerificationProgress status={faceStatus} />
+
+                      {faceError && <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{faceError}</p>}
+
+                      {(faceStatus === "idle" || faceStatus === "error") && (
+                        <button type="button" onClick={beginFaceVerification} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"><ScanFace size={18} />Iniciar verificación facial</button>
+                      )}
+
+                      {faceStatus === "verified" && (
+                        <button onClick={() => navigate("/dashboard")} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"><LockKeyhole size={17} />Continuar al dashboard</button>
+                      )}
+
+                      <div className="mt-5 flex items-start justify-center gap-2 border-t border-slate-100 pt-4 text-center text-[11px] leading-5 text-slate-400">
+                        <LockKeyhole className="mt-0.5 shrink-0 text-blue-500" size={13} />
+                        <p>Al continuar autorizas el procesamiento biométrico necesario. MatrixFlow no guarda el video.</p>
+                      </div>
                     </div>
-                  )}
-
-                  {faceStatus === "active" && faceSession && (
-                    <div className="mt-7 overflow-hidden rounded-3xl bg-slate-950 shadow-xl">
-                      <FaceLivenessDetector
-                        key={faceSession.sessionId}
-                        sessionId={faceSession.sessionId}
-                        region={faceSession.region}
-                        onAnalysisComplete={finishFaceVerification}
-                        onUserCancel={resetFaceVerification}
-                        onError={() => {
-                          setFaceSession(null);
-                          setFaceStatus("error");
-                          setFaceError("La sesión facial se interrumpió. Crea un intento nuevo.");
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {faceStatus === "verifying" && (
-                    <div className="mt-7 grid min-h-72 place-items-center rounded-3xl bg-slate-950 text-center text-white shadow-xl">
-                      <div><ScanFace className="mx-auto animate-pulse text-cyan-300" size={44} /><p className="mt-4 font-semibold">Confirmando identidad...</p><p className="mt-1 text-xs text-slate-400">Validando prueba de vida y coincidencia facial.</p></div>
-                    </div>
-                  )}
-
-                  {faceStatus === "verified" && (
-                    <div className="mt-7 grid min-h-72 place-items-center rounded-3xl bg-emerald-950 p-8 text-center text-white shadow-xl">
-                      <div><CheckCircle2 className="mx-auto text-emerald-300" size={58} /><h3 className="mt-5 text-xl font-bold">Identidad verificada</h3><p className="mt-2 text-sm leading-6 text-emerald-100/80">La prueba de vida y el rostro registrado coincidieron.</p></div>
-                    </div>
-                  )}
-
-                  {faceError && <p className="mt-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{faceError}</p>}
-
-                  {(faceStatus === "idle" || faceStatus === "error") && (
-                    <button type="button" onClick={beginFaceVerification} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><ScanFace size={18} />Iniciar verificación facial</button>
-                  )}
-
-                  {faceStatus === "verified" && (
-                    <div className="mt-5">
-                      <button onClick={() => navigate("/dashboard")} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><LockKeyhole size={17} />Continuar al dashboard</button>
-                    </div>
-                  )}
-
-                  <p className="mt-4 text-center text-[11px] leading-5 text-slate-400">Al continuar autorizas el procesamiento biométrico necesario para verificar tu identidad. MatrixFlow no guarda el video de la prueba.</p>
+                  </div>
                 </div>
               )}
 
@@ -387,6 +440,33 @@ export default function Login() {
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function FaceVerificationProgress({ status }: { status: FaceStatus }) {
+  const currentStage = faceProgressByStatus[status];
+
+  return (
+    <div className="mt-6 flex items-start" aria-label="Progreso de verificación facial">
+      {faceProgressStages.map((stage, index) => {
+        const isComplete = currentStage > index;
+        const isActive = currentStage === index;
+
+        return (
+          <div key={stage} className={`flex items-start ${index < faceProgressStages.length - 1 ? "flex-1" : ""}`}>
+            <div className="flex min-w-16 flex-col items-center text-center">
+              <span className={`grid h-8 w-8 place-items-center rounded-full border-2 text-xs font-bold transition-all ${isComplete ? "border-blue-600 bg-blue-600 text-white" : isActive ? "border-cyan-400 bg-white text-blue-700 shadow-[0_0_0_5px_rgba(34,211,238,0.14)]" : "border-slate-200 bg-slate-100 text-slate-400"}`}>
+                {isComplete ? <CheckCircle2 size={17} /> : index + 1}
+              </span>
+              <span className={`mt-2 text-[11px] font-semibold ${isComplete || isActive ? "text-slate-800" : "text-slate-400"}`}>{stage}</span>
+            </div>
+            {index < faceProgressStages.length - 1 && (
+              <div className={`mx-2 mt-4 h-0.5 flex-1 rounded-full ${currentStage > index ? "bg-blue-600" : "bg-slate-200"}`} />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
