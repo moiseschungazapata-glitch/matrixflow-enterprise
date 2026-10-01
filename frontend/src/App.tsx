@@ -16,6 +16,7 @@ const Matrices = lazy(() => import("./pages/matematico/Matrices"));
 const Operaciones = lazy(() => import("./pages/matematico/Operaciones"));
 const Vectores = lazy(() => import("./pages/matematico/Vectores"));
 const Reportes = lazy(() => import("./pages/reportes/Reportes"));
+const Metas = lazy(() => import("./pages/metas/Metas"));
 const Usuarios = lazy(() => import("./pages/usuarios/Usuarios"));
 const Ventas = lazy(() => import("./pages/ventas/Ventas"));
 
@@ -33,6 +34,16 @@ function LoginRoute() {
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />;
 }
 
+function BusinessRoute() {
+  const { user } = useAuth();
+  return user?.role === "Consulta" ? <Navigate to="/dashboard" replace /> : <Outlet />;
+}
+
+function AdministratorRoute() {
+  const { user } = useAuth();
+  return user?.role === "Administrador" ? <Outlet /> : <Navigate to="/dashboard" replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -41,19 +52,24 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/empresa" element={<Empresa />} />
-            <Route path="/sucursales" element={<Sucursales />} />
-            <Route path="/productos" element={<Productos />} />
-            <Route path="/ventas" element={<Ventas />} />
-            <Route path="/inventario" element={<Inventario />} />
-            <Route path="/vectores" element={<Vectores />} />
-            <Route path="/matrices" element={<Matrices />} />
-            <Route path="/operaciones" element={<Operaciones />} />
-            <Route path="/combinaciones-lineales" element={<CombinacionesLineales />} />
-            <Route path="/historial" element={<Historial />} />
             <Route path="/reportes" element={<Reportes />} />
-            <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/configuracion" element={<Configuracion />} />
+            <Route element={<BusinessRoute />}>
+              <Route path="/empresa" element={<Empresa />} />
+              <Route path="/sucursales" element={<Sucursales />} />
+              <Route path="/productos" element={<Productos />} />
+              <Route path="/ventas" element={<Ventas />} />
+              <Route path="/inventario" element={<Inventario />} />
+              <Route path="/vectores" element={<Vectores />} />
+              <Route path="/matrices" element={<Matrices />} />
+              <Route path="/operaciones" element={<Operaciones />} />
+              <Route path="/combinaciones-lineales" element={<CombinacionesLineales />} />
+              <Route path="/historial" element={<Historial />} />
+            </Route>
+            <Route element={<AdministratorRoute />}>
+              <Route path="/usuarios" element={<Usuarios />} />
+              <Route path="/metas" element={<Metas />} />
+            </Route>
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

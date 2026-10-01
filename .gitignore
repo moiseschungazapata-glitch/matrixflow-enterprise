@@ -4,6 +4,10 @@
 __pycache__/
 *.py[cod]
 *.pyo
+.pytest_cache/
+.pytest_tmp/
+pytest-cache-files-*/
+.uv-cache/
 
 # Entorno virtual 
 .venv/

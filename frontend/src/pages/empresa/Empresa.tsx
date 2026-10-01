@@ -5,7 +5,9 @@ import { useForm } from "react-hook-form";
 import Modal from "../../components/common/Modal";
 import PageHeader from "../../components/common/PageHeader";
 import StatusBadge from "../../components/common/StatusBadge";
-import { useMockStore } from "../../hooks/useMockStore";
+import { useEnterpriseStore } from "../../hooks/useEnterpriseStore";
+import { useAuth } from "../../hooks/useAuth";
+import { getApiErrorMessage } from "../../services/api/enterprise";
 import { companySchema, type CompanyFormData } from "../../schemas";
 import type { CompanyProfile } from "../../types";
 
@@ -20,7 +22,9 @@ const emptyCompany: CompanyFormData = {
 };
 
 export default function Empresa() {
-  const { companies, branches, saveCompany, removeCompany } = useMockStore();
+  const { companies, branches, saveCompany, removeCompany } = useEnterpriseStore();
+  const { user } = useAuth();
+  const canEdit = user?.role === "Administrador";
   const [editing, setEditing] = useState<CompanyProfile | null>(null);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -31,16 +35,17 @@ export default function Empresa() {
 
   const showCreate = () => { setEditing(null); reset(emptyCompany); setOpen(true); };
   const showEdit = (company: CompanyProfile) => { setEditing(company); reset(company); setOpen(true); };
-  const submit = (data: CompanyFormData) => {
-    saveCompany({ ...data, id: editing?.id });
-    setOpen(false);
-    setMessage(editing ? "Empresa actualizada correctamente." : "Empresa registrada correctamente.");
+  const submit = async (data: CompanyFormData) => {
+    try {
+      await saveCompany({ ...data, id: editing?.id });
+      setOpen(false);
+      setMessage(editing ? "Empresa actualizada correctamente." : "Empresa registrada correctamente.");
+    } catch (error) { setMessage(getApiErrorMessage(error)); }
   };
-  const remove = (company: CompanyProfile) => {
+  const remove = async (company: CompanyProfile) => {
     if (!window.confirm(`¿Eliminar ${company.name}?`)) return;
-    setMessage(removeCompany(company.id)
-      ? "Empresa eliminada correctamente."
-      : "No se puede eliminar porque tiene sucursales relacionadas.");
+    try { await removeCompany(company.id); setMessage("Empresa eliminada correctamente."); }
+    catch (error) { setMessage(getApiErrorMessage(error)); }
   };
 
   return (
@@ -49,10 +54,11 @@ export default function Empresa() {
         eyebrow="Gestión empresarial"
         title="Empresas"
         description="Registra, consulta, actualiza y elimina las organizaciones del sistema."
-        action={<button onClick={showCreate} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"><Plus size={17} />Nueva empresa</button>}
+        action={canEdit ? <button onClick={showCreate} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"><Plus size={17} />Nueva empresa</button> : undefined}
       />
       <section className="space-y-5 p-4 sm:p-6 lg:p-8">
         {message && <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">{message}</div>}
+        {companies.length === 0 && <p className="text-sm text-slate-500">Aún no hay empresas registradas.</p>}
         <div className="grid gap-5 xl:grid-cols-2">
           {companies.map((company) => {
             const companyBranches = branches.filter((branch) => branch.companyId === company.id);
@@ -72,7 +78,7 @@ export default function Empresa() {
                 </div>
                 <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
                   <div><p className="text-xs text-slate-500">Sector</p><p className="text-sm font-medium text-slate-800">{company.sector} · {companyBranches.length} sucursales</p></div>
-                  <div className="flex gap-1"><button onClick={() => showEdit(company)} className="rounded-lg p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-600" aria-label={`Editar ${company.name}`}><Edit3 size={17} /></button><button onClick={() => remove(company)} className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600" aria-label={`Eliminar ${company.name}`}><Trash2 size={17} /></button></div>
+                  {canEdit && <div className="flex gap-1"><button onClick={() => showEdit(company)} className="rounded-lg p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-600" aria-label={`Editar ${company.name}`}><Edit3 size={17} /></button><button onClick={() => void remove(company)} className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600" aria-label={`Eliminar ${company.name}`}><Trash2 size={17} /></button></div>}
                 </div>
               </article>
             );

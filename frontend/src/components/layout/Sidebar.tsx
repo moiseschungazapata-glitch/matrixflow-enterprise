@@ -1,35 +1,36 @@
-import { BarChart3, Building2, Calculator, ChevronRight, FileClock, GitMerge, LayoutDashboard, LogOut, Package, Settings, ShoppingCart, Sigma, Table2, Users, Warehouse, X, type LucideIcon } from "lucide-react";
+import { BarChart3, Building2, Calculator, ChevronRight, FileClock, GitMerge, LayoutDashboard, LogOut, Package, Settings, ShoppingCart, Sigma, Table2, Target, Users, Warehouse, X, type LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 
 interface SidebarProps { open: boolean; onClose: () => void }
-interface MenuItem { label: string; path: string; icon: LucideIcon }
+interface MenuItem { label: string; path: string; icon: LucideIcon; access?: "business" | "admin" }
 
 const groups: { label: string; items: MenuItem[] }[] = [
   { label: "GENERAL", items: [{ label: "Dashboard", path: "/dashboard", icon: LayoutDashboard }] },
   { label: "EMPRESA", items: [
-    { label: "Empresa", path: "/empresa", icon: Building2 },
-    { label: "Sucursales", path: "/sucursales", icon: Warehouse },
-    { label: "Productos", path: "/productos", icon: Package },
-    { label: "Ventas", path: "/ventas", icon: ShoppingCart },
-    { label: "Inventario", path: "/inventario", icon: Table2 },
+    { label: "Empresa", path: "/empresa", icon: Building2, access: "business" },
+    { label: "Sucursales", path: "/sucursales", icon: Warehouse, access: "business" },
+    { label: "Productos", path: "/productos", icon: Package, access: "business" },
+    { label: "Ventas", path: "/ventas", icon: ShoppingCart, access: "business" },
+    { label: "Inventario", path: "/inventario", icon: Table2, access: "business" },
   ] },
   { label: "ANÁLISIS MATEMÁTICO", items: [
-    { label: "Vectores", path: "/vectores", icon: Sigma },
-    { label: "Matrices", path: "/matrices", icon: Calculator },
-    { label: "Operaciones", path: "/operaciones", icon: ChevronRight },
-    { label: "Combinaciones lineales", path: "/combinaciones-lineales", icon: GitMerge },
+    { label: "Vectores", path: "/vectores", icon: Sigma, access: "business" },
+    { label: "Matrices", path: "/matrices", icon: Calculator, access: "business" },
+    { label: "Operaciones", path: "/operaciones", icon: ChevronRight, access: "business" },
+    { label: "Combinaciones lineales", path: "/combinaciones-lineales", icon: GitMerge, access: "business" },
   ] },
   { label: "GESTIÓN", items: [
-    { label: "Historial", path: "/historial", icon: FileClock },
+    { label: "Historial", path: "/historial", icon: FileClock, access: "business" },
     { label: "Reportes", path: "/reportes", icon: BarChart3 },
-    { label: "Usuarios", path: "/usuarios", icon: Users },
+    { label: "Metas", path: "/metas", icon: Target, access: "admin" },
+    { label: "Usuarios", path: "/usuarios", icon: Users, access: "admin" },
     { label: "Configuración", path: "/configuracion", icon: Settings },
   ] },
 ];
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   return (
     <>
       {open && <button className="fixed inset-0 z-40 bg-slate-950/50 lg:hidden" onClick={onClose} aria-label="Cerrar navegación" />}
@@ -40,7 +41,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <button className="ml-auto rounded-lg p-2 text-slate-400 hover:bg-slate-800 lg:hidden" onClick={onClose} aria-label="Cerrar navegación"><X size={19} /></button>
         </div>
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
-          {groups.map((group) => (
+          {groups.map((group) => ({ ...group, items: group.items.filter((item) => !item.access || (item.access === "business" ? user?.role !== "Consulta" : user?.role === "Administrador")) })).filter((group) => group.items.length > 0).map((group) => (
             <div key={group.label}>
               <p className="mb-2 px-3 text-[10px] font-bold tracking-[0.16em] text-slate-500">{group.label}</p>
               <div className="space-y-1">
@@ -53,7 +54,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           ))}
         </nav>
         <div className="border-t border-slate-800 p-3">
-          <div className="mb-2 flex items-center gap-2 rounded-xl bg-slate-800 px-3 py-2.5 text-xs text-slate-300"><span className="h-2 w-2 rounded-full bg-emerald-400" />Datos simulados activos</div>
           <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white"><LogOut size={18} />Cerrar sesión</button>
         </div>
       </aside>

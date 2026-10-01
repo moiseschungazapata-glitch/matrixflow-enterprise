@@ -35,9 +35,10 @@ def create_operation(
 def get_operations(
     session: DatabaseSession,
     _current_user: BusinessUser,
+    offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[OperationResponse]:
-    return OperationService(session).list(limit=limit)
+    return OperationService(session).list(offset=offset, limit=limit)
 
 
 @router.get("/{operation_id}", response_model=OperationResponse)

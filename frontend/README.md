@@ -1,40 +1,26 @@
 # MatrixFlow Enterprise - Frontend
 
-Frontend de la Fase 1 del plan maestro de MatrixFlow Enterprise. Está construido con React, TypeScript, Vite y Tailwind CSS, y utiliza datos simulados persistidos en `localStorage` hasta que se complete la integración con FastAPI.
+Frontend React y TypeScript conectado a la API FastAPI. Las pantallas empresariales leen y guardan datos mediante la API; solo las preferencias visuales permanecen en `localStorage`.
 
-## Ejecución
+## Configuración
+
+Define `VITE_API_URL` con la URL pública del backend (incluido `/api/v1` si así está configurado). El navegador nunca debe recibir la cadena de conexión, contraseña o llave de servicio de Supabase.
+
+Ejemplo local en `.env.local`:
+
+```dotenv
+VITE_API_URL=http://127.0.0.1:8000/api/v1
+```
 
 ```bash
 npm ci
 npm run dev
-```
-
-Para validar una entrega:
-
-```bash
 npm run lint
 npm run build
 ```
 
-## Acceso de demostración
+En el backend, `DATABASE_URL` debe apuntar a PostgreSQL de Supabase y las migraciones deben estar aplicadas antes de abrir la aplicación. No se crean registros de demostración. El primer administrador se crea con `python -m app.bootstrap_admin` y valores reales proporcionados mediante variables de entorno.
 
-- Administrador: `admin@matrixflow.pe`
-- Analista: `analista@matrixflow.pe`
-- Consulta: `consulta@matrixflow.pe`
-- Contraseña para los tres perfiles: `demo123`
+## Módulos
 
-## Módulos incluidos
-
-- Login y sesión local de demostración.
-- Layout responsive, navegación móvil y rutas protegidas.
-- Dashboard con indicadores y gráficos.
-- CRUD visual de empresas, sucursales, productos y usuarios.
-- Registro de ventas con actualización de inventario y trazabilidad de movimientos.
-- Gestión y edición de vectores y matrices.
-- Operaciones vectoriales y matriciales, incluida una pantalla propia de combinaciones lineales, con validación de dimensiones.
-- Historial de cálculos, reportes y exportación CSV.
-- Configuración y restauración de datos simulados.
-
-## Integración futura
-
-El cliente HTTP está preparado en `src/services/api/client.ts`. Define `VITE_API_URL` cuando la API FastAPI esté disponible. Los cálculos que actualmente se simulan en React deben delegarse al motor Python + NumPy durante las fases 4 y 5.
+El dashboard y reportes muestran agregados de la API. Empresas, sucursales, productos, ventas, inventario, vectores, matrices, operaciones, historial y metas utilizan los endpoints correspondientes. La gestión de usuarios ya usa la API. Los cálculos se ejecutan en el backend con NumPy y se guardan en `operations`.

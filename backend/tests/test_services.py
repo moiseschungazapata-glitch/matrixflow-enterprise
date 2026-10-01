@@ -14,6 +14,7 @@ from app.schemas.matrix import MatrixCreate, MatrixUpdate
 from app.schemas.operation import OperationCreate
 from app.schemas.product import ProductCreate
 from app.schemas.sale import SaleCreate
+from app.schemas.target import TargetCreate, TargetUpdate
 from app.schemas.user import UserCreate
 from app.schemas.vector import VectorCreate, VectorUpdate
 from app.services.branch_service import BranchService
@@ -24,6 +25,7 @@ from app.services.operation_service import OperationService
 from app.services.product_service import ProductService
 from app.services.report_service import ReportService
 from app.services.sale_service import SaleService
+from app.services.target_service import TargetService
 from app.services.user_service import UserService
 from app.services.vector_service import VectorService
 
@@ -86,6 +88,19 @@ def test_catalog_services_persist_validated_entities(session: Session) -> None:
                 minimum_stock=0,
             )
         )
+
+
+def test_targets_use_existing_branch_and_persist_updates(session: Session) -> None:
+    _, branch_id, _ = create_catalog(session)
+    service = TargetService(session)
+    target = service.create(TargetCreate(branch_id=branch_id, name="Meta anual", target_value=1000))
+    assert service.list()[0].target_value == 1000
+    updated = service.update(target.id, TargetUpdate(target_value=1500))
+    assert updated.target_value == 1500
+    service.delete(target.id)
+    assert service.list() == []
+    with pytest.raises(ResourceNotFoundError):
+        service.create(TargetCreate(branch_id=9999, name="Meta inválida", target_value=1000))
 
 
 def test_users_store_hashes_and_never_return_passwords(session: Session) -> None:

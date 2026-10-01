@@ -33,9 +33,8 @@ Servicios disponibles:
 - Documentación Swagger: `http://127.0.0.1:8000/docs`
 - Estado de salud: `http://127.0.0.1:8000/health`
 
-En desarrollo, el arranque crea las tablas faltantes en `backend/matrixflow.db`
-y registra de forma idempotente los tres usuarios de demostración documentados
-por el frontend. En producción, utiliza migraciones y configura
+En desarrollo, el arranque crea las tablas faltantes en `backend/matrixflow.db`.
+No crea usuarios ni datos empresariales. En producción, utiliza migraciones y configura
 `ENVIRONMENT=production`.
 
 La opción `--reload` es sólo para desarrollo. En producción debe ejecutarse sin recarga automática.
@@ -53,19 +52,21 @@ Copia `.env.example` como `.env` y ajusta los valores. El archivo `.env` real es
 ## Base de datos y migraciones
 
 El desarrollo local conserva SQLite para que Swagger funcione sin instalar un
-servidor adicional. La migración inicial de Alembic crea las 19 tablas del
-modelo y es compatible tanto con SQLite como con PostgreSQL.
+servidor adicional. Alembic mantiene las tablas del modelo tanto en SQLite como
+en PostgreSQL.
 
 Para preparar una base nueva desde la carpeta `backend`:
 
 ```powershell
 alembic upgrade head
-python -m app.seed
 alembic current
 ```
 
-`python -m app.seed` registra de forma idempotente los tres usuarios de
-demostración; puede ejecutarse más de una vez sin duplicarlos.
+La aplicación no inserta cuentas ni registros ficticios. Para crear el primer
+administrador de una base nueva, define `MATRIXFLOW_ADMIN_NAME`,
+`MATRIXFLOW_ADMIN_EMAIL` y `MATRIXFLOW_ADMIN_PASSWORD` en el entorno del
+proceso y ejecuta `python -m app.bootstrap_admin`. Este comando solo funciona
+si `users` está vacía; después, gestiona usuarios desde el dashboard.
 
 Para PostgreSQL o Supabase configura la conexión en `.env` y desactiva la
 creación automática de tablas:
@@ -74,12 +75,24 @@ creación automática de tablas:
 ENVIRONMENT="production"
 DATABASE_URL="postgresql+psycopg://usuario:clave@host:5432/matrixflow?sslmode=require"
 AUTO_CREATE_TABLES=false
-SEED_DEMO_USERS=false
 ```
 
-Después ejecuta `alembic upgrade head` antes de iniciar Uvicorn. Las URLs que
+Después ejecuta `alembic upgrade head` antes de iniciar Uvicorn. Antes de aplicar
+migraciones a una instancia de Supabase que ya tiene tablas y datos, compara su
+esquema con `alembic history` y toma un respaldo. No ejecutes `stamp head` sin
+comprobar que la estructura coincide. Las URLs que
 comienzan con `postgres://` o `postgresql://` también se normalizan al
 controlador `psycopg` instalado por el proyecto.
+
+Puedes revisar la estructura configurada sin escribir en la base:
+
+```powershell
+python -m app.schema_audit
+```
+
+El informe separa tablas y columnas ausentes de las adicionales. Una tabla
+adicional no se debe borrar por aparecer en este informe: primero hay que
+revisar sus datos, referencias y uso fuera de MatrixFlow.
 
 Si `matrixflow.db` ya fue creado por una versión anterior mediante
 `create_all`, sus tablas corresponden al mismo modelo. No vuelvas a crearlas:
@@ -105,7 +118,7 @@ POST /api/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@matrixflow.pe",
+  "email": "correo-del-administrador@tu-dominio.com",
   "password": "contraseña-segura"
 }
 ```
@@ -174,8 +187,7 @@ La configuración completa de IAM, Cognito, Rekognition, Supabase y Vercel está
 
 ### Probar vectores desde Swagger
 
-1. Ejecuta `POST /api/v1/auth/login` con `analista@matrixflow.pe` y
-   `demo123`.
+1. Ejecuta `POST /api/v1/auth/login` con una cuenta de analista real.
 2. Copia `accessToken`, pulsa **Authorize** y pega únicamente el token.
 3. Crea dos operandos mediante `POST /api/v1/vectors`.
 4. Ejecuta el cálculo mediante `POST /api/v1/operations`, usando los `id`
@@ -193,6 +205,7 @@ Los módulos empresariales están disponibles bajo `/api/v1`:
 
 - `/users`, `/companies`, `/branches` y `/products`: consulta y CRUD administrativo.
 - `/sales`: registro y consulta de ventas.
+- `/targets`: consulta y CRUD administrativo de metas por sucursal.
 - `/inventory` y `/inventory/movements`: existencias, ajustes y trazabilidad.
 - `/vectors` y `/matrices`: CRUD de estructuras matemáticas.
 - `/operations`: ejecución NumPy e historial de operaciones.

@@ -3,11 +3,11 @@ import { useMemo, useState } from "react";
 import EmptyState from "../../components/common/EmptyState";
 import PageHeader from "../../components/common/PageHeader";
 import StatusBadge from "../../components/common/StatusBadge";
-import { useMockStore } from "../../hooks/useMockStore";
+import { useEnterpriseStore } from "../../hooks/useEnterpriseStore";
 import { formatDate, formatResult } from "../../utils/formatters";
 
 export default function Historial() {
-  const { operations } = useMockStore();
+  const { operations } = useEnterpriseStore();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const filtered = useMemo(() => operations.filter((operation) => `${operation.type} ${operation.inputs} ${operation.user}`.toLowerCase().includes(search.toLowerCase()) && (category === "all" || operation.category === category)), [operations, search, category]);

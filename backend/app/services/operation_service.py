@@ -38,10 +38,10 @@ class OperationService(BaseService):
         self.matrices = MatrixRepository(session)
         self.engine = engine or NumPyLinearAlgebraEngine()
 
-    def list(self, *, limit: int = 100) -> list[OperationResponse]:
+    def list(self, *, offset: int = 0, limit: int = 100) -> list[OperationResponse]:
         return [
             OperationResponse.model_validate(operation)
-            for operation in self.operations.list_recent(limit=limit)
+            for operation in self.operations.list_recent(offset=offset, limit=limit)
         ]
 
     def get(self, operation_id: int) -> OperationResponse:

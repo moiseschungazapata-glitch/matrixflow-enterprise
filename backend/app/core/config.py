@@ -20,7 +20,6 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     database_url: str = "sqlite:///./matrixflow.db"
     auto_create_tables: bool = True
-    seed_demo_users: bool = True
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",

@@ -105,22 +105,13 @@ export interface UserRecord {
   faceEnrolledAt: string | null;
 }
 
-export interface AppSettings {
-  currency: "PEN" | "USD";
-  lowStockNotifications: boolean;
-  compactTables: boolean;
+export interface TargetRecord {
+  id: number;
+  branchId: number;
+  name: string;
+  targetValue: number;
 }
 
-export interface MockState {
-  companies: CompanyProfile[];
-  branches: Branch[];
-  products: Product[];
-  sales: Sale[];
-  inventory: InventoryItem[];
-  inventoryMovements: InventoryMovement[];
-  vectors: VectorRecord[];
-  matrices: MatrixRecord[];
-  operations: OperationRecord[];
-  users: UserRecord[];
-  settings: AppSettings;
+export interface AppSettings {
+  currency: "PEN" | "USD";
 }
